@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLauncher Skin Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/skinview3d/3.0.0-alpha.1/bundle.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #viewer-container {
+            flex-grow: 1;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .controls {
+            background: #252525;
+            width: 100%;
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            border-top: 2px solid #3498db;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: 0.2s;
+        }
+
+        .btn-blue { background: #3498db; }
+        .btn-green { background: #27ae60; }
+        .btn:hover { opacity: 0.8; transform: translateY(-2px); }
+
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="viewer-container"></div>
+
+    <div class="controls">
+        <label class="btn btn-green">
+            CARGAR SKIN PNG
+            <input type="file" id="skin-input" accept="image/png">
+        </label>
+        <button class="btn btn-blue" onclick="toggleWalk()">CAMINAR</button>
+        <button class="btn btn-blue" onclick="resetRotation()">RESETEAR</button>
+    </div>
+
+    <script>
+        let viewer;
+        let walkAnimation;
+
+        async function init() {
+            // Esperar un momento para asegurar que el DOM y la librería estén listos
+            if (typeof skinview3d === 'undefined') {
+                console.log("Esperando a la librería...");
+                setTimeout(init, 200);
+                return;
+            }
+
+            // Crear el visualizador
+            viewer = new skinview3d.SkinViewer({
+                canvas: document.createElement("canvas"),
+                width: 350,
+                height: 450,
+                skin: "https://textures.minecraft.net/texture/1a4949057b353df3503b170966206577eef2af8a68d4fb142161cc51a393964b"
+            });
+
+            document.getElementById("viewer-container").appendChild(viewer.canvas);
+
+
+        init();
+    </script>
+</body>
+</html>

@@ -13,12 +13,18 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.effect.GaussianBlur;
+import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundImage;
+import javafx.scene.layout.BackgroundPosition;
+import javafx.scene.layout.BackgroundRepeat;
+import javafx.scene.layout.BackgroundSize;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
@@ -73,9 +79,26 @@ public class MainView {
 
         // Barra inferior flotante
         HBox navBar = new HBox(15);
-        navBar.getStyleClass().add("floating-navbar");
-        navBar.setMaxHeight(60);
+        navBar.setMaxHeight(90); // Aumentado para evitar que se vea aplastado
         navBar.setMaxWidth(Region.USE_PREF_SIZE); // La barra se ajustará al tamaño de los botones, haciéndola más compacta
+
+        // Aplicar textura a la barra flotante
+        File navBarTexture = new File("assets/texture/bar_flotanting.png");
+        if (navBarTexture.exists()) {
+            // Cargar imagen sin suavizado (smooth=false) para que el pixel art se vea nítido
+            Image img = new Image(navBarTexture.toURI().toString(), 0, 0, false, false);
+            
+            BackgroundImage bgImage = new BackgroundImage(
+                img, BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT, 
+                BackgroundPosition.CENTER, new BackgroundSize(1.0, 1.0, true, true, false, false)
+            );
+            
+            navBar.setBackground(new Background(bgImage));
+            // [FIX] Usar setPadding en lugar de setStyle para evitar que CSS sobrescriba la textura
+            navBar.setPadding(new Insets(15, 35, 15, 35));
+        } else {
+            navBar.setStyle("-fx-background-color: rgba(20, 20, 20, 0.9); -fx-background-radius: 25; -fx-padding: 10 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 5);");
+        }
 
         btnInicio = new Button("Inicio");
         btnNews = new Button("Noticias");
@@ -125,6 +148,19 @@ public class MainView {
         });
 
         navBar.getChildren().addAll(btnInicio, btnNews, btnShop, btnVersions, btnCuenta, btnChat, btnMusic, btnDownloads, btnSettings);
+
+        // Animación de elevación al pasar el mouse (Hover)
+        TranslateTransition hoverAnim = new TranslateTransition(Duration.millis(200), navBar);
+        navBar.setOnMouseEntered(e -> {
+            hoverAnim.stop();
+            hoverAnim.setToY(-10); // Subir 10px suavemente
+            hoverAnim.play();
+        });
+        navBar.setOnMouseExited(e -> {
+            hoverAnim.stop();
+            hoverAnim.setToY(0); // Bajar a posición original
+            hoverAnim.play();
+        });
         
         // --- Contenedor de Notificaciones ---
         notificationContainer = new VBox(10);

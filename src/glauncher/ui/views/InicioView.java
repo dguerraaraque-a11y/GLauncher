@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import javafx.animation.KeyFrame;
+import javafx.animation.FadeTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -12,12 +13,14 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -25,6 +28,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Priority;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
@@ -61,6 +65,7 @@ public class InicioView {
     private VBox devConsole;
     private TextArea devConsoleOutput;
     private Label lblUser;
+    private Circle avatar;
     private long lastSessionModified = 0;
 
     // [FIX] SSL Handshake fix for old Java 8 / Forge Maven
@@ -96,38 +101,41 @@ public class InicioView {
         root.setStyle("-fx-background-color: transparent;");
         
         BorderPane layout = new BorderPane();
-        // Aumentamos el padding inferior a 100 para evitar que la barra de navegación tape los botones
-        layout.setPadding(new Insets(40, 40, 110, 40));
+        layout.setPadding(new Insets(0)); // Sin padding externo para que la barra lateral ocupe todo el alto
 
-        // --- WIDGETS (Izquierda) ---
-        VBox leftWidgets = new VBox(20);
-        leftWidgets.setAlignment(Pos.TOP_LEFT);
-        leftWidgets.setPrefWidth(280);
+        // --- BARRA LATERAL (Izquierda) ---
+        VBox sidebar = new VBox(20);
+        sidebar.setAlignment(Pos.TOP_CENTER);
+        sidebar.setPrefWidth(280);
+        sidebar.setPadding(new Insets(30));
+        // [MODIFICADO] Barra lateral transparente con widgets flotantes (Estilo Moderno)
+        sidebar.setStyle("-fx-background-color: transparent;"); 
+
+        // Declaraciones faltantes
+        VBox userWidget = new VBox(10);
+        HBox userHeader = new HBox(10);
 
         // Widget Usuario
-        VBox userWidget = new VBox(10);
-        userWidget.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15; -fx-effect: dropshadow(three-pass-box, rgba(0,255,255,0.3), 10, 0, 0, 0);");
+        // 1. Widget Usuario
+        userWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
+        userWidget.setAlignment(Pos.CENTER);
         
-        HBox userHeader = new HBox(10);
         userHeader.setAlignment(Pos.CENTER_LEFT);
-        Circle avatar = new Circle(20, Color.web("#0078d7"));
+        avatar = new Circle(25, Color.web("#0078d7"));
+        avatar.setStroke(Color.WHITE);
+        avatar.setStrokeWidth(1.5);
         // Intentar cargar avatar
-        try {
-            avatar.setFill(new javafx.scene.paint.ImagePattern(new Image(resolveAssetPath("assets/avatars/default-avatar.png"))));
-        } catch (Exception ignored) {}
         
         lblUser = new Label("Cargando...");
-        lblUser.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 16px;");
+        lblUser.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px;");
         userHeader.getChildren().addAll(avatar, lblUser);
         
         Label lblRank = new Label("Rango: Usuario");
         lblRank.setStyle("-fx-text-fill: #aaa; -fx-font-size: 12px;");
-        
-        userWidget.getChildren().addAll(userHeader, lblRank);
 
         // Widget Noticias (Movido a la izquierda)
         VBox newsWidget = new VBox(10);
-        newsWidget.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15;");
+        newsWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
         Label newsTitle = new Label("Últimas Novedades");
         newsTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
         Label newsContent = new Label("• Nuevo sistema de Skins\n• Chat Global activado\n• Tienda de cosméticos\n• Optimización de FPS");
@@ -135,9 +143,8 @@ public class InicioView {
         newsContent.setWrapText(true);
         newsWidget.getChildren().addAll(newsTitle, newsContent);
 
-        leftWidgets.getChildren().addAll(userWidget, newsWidget);
-        
         // Carga inicial del usuario
+        userWidget.getChildren().addAll(userHeader, lblRank);
         updateUserInfo();
 
         // --- CENTRO (Logo y Play) ---
@@ -151,18 +158,19 @@ public class InicioView {
         title.setStyle("-fx-text-fill: white; -fx-font-size: 70px; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, cyan, 25, 0.5, 0, 0); -fx-font-family: 'Segoe UI Black', Impact, sans-serif;");
 
         // Área de Juego (Barra inferior)
-        HBox playArea = new HBox(15);
+        HBox playArea = new HBox(20); // [MEJORA] Más espacio entre elementos
         playArea.setAlignment(Pos.CENTER);
         playArea.setMaxWidth(700);
         playArea.setPadding(new Insets(20));
         playArea.setStyle("-fx-background-color: rgba(20, 20, 20, 0.8); -fx-background-radius: 20; -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20; -fx-border-width: 1; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 5);");
 
         // Selector de Versiones
+        // 2. Selector de Versiones
         ComboBox<String> versionSelector = new ComboBox<>();
         versionSelector.setPromptText("Seleccionar Versión");
         versionSelector.setPrefWidth(250);
-        versionSelector.setPrefHeight(50);
-        versionSelector.setStyle("-fx-font-size: 14px; -fx-base: #222; -fx-text-fill: white; -fx-background-radius: 5;");
+        versionSelector.setPrefHeight(45);
+        versionSelector.setStyle("-fx-font-size: 14px; -fx-base: #222; -fx-text-fill: white; -fx-background-radius: 3;");
         
         // Cargar versiones descargadas
         List<String> versions = getDownloadedVersions();
@@ -175,9 +183,11 @@ public class InicioView {
         }
 
         // Botón PLAY
+        // 3. Botón JUGAR
         Button btnPlay = new Button("JUGAR");
         btnPlay.setPrefWidth(200);
-        btnPlay.setPrefHeight(50);
+        btnPlay.setMaxWidth(Double.MAX_VALUE);
+        btnPlay.setPrefHeight(60);
         // Estilo estilo Minecraft (Verde, bloque)
         String defaultStyle = "-fx-background-color: #3c8527; " + // Verde base
                               "-fx-text-fill: white; " +
@@ -203,12 +213,19 @@ public class InicioView {
         rgbPlay.setCycleCount(Timeline.INDEFINITE);
         rgbPlay.play();
 
-        // Botón Reparar
-        Button btnRepair = new Button("⚙");
+        // 4. Botón Reparar
+        Button btnRepair = new Button();
+        // [NUEVO] Usar el icono de tuerca en lugar de texto
+        btnRepair.setGraphic(loadIcon("assets/icons/icons-gui/tuerca.png", 20));
         btnRepair.setTooltip(new Tooltip("Reparar Instalación (Verificar archivos)"));
-        btnRepair.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand; -fx-background-radius: 5; -fx-border-color: #d35400; -fx-border-width: 2;");
+        // [MEJORA] Estilo más moderno y limpio para el botón de icono
         btnRepair.setPrefHeight(50);
-        btnRepair.setPrefWidth(50);
+        btnRepair.setPrefWidth(60);
+        btnRepair.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 3;");
+        
+        // Efecto Hover para el botón de reparar
+        btnRepair.setOnMouseEntered(e -> btnRepair.setStyle("-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 3;"));
+        btnRepair.setOnMouseExited(e -> btnRepair.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 3;"));
         
         btnRepair.setOnAction(e -> {
             String selected = versionSelector.getValue();
@@ -225,6 +242,13 @@ public class InicioView {
                 MainView.showNotification("Error", "Debes descargar una versión primero.", "error");
             }
         });
+        // 5. Hora (Solo la hora)
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        
+        sidebar.getChildren().addAll(userWidget, newsWidget, spacer);
+
+        // --- CENTRO (Título y Redes) ---
 
         // Barra de Redes Sociales
         HBox socialBox = new HBox(15);
@@ -241,13 +265,51 @@ public class InicioView {
         devConsole.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 10; -fx-background-radius: 10;");
         devConsole.setVisible(false); // Oculta por defecto
         devConsole.setManaged(false); // No ocupa espacio cuando está oculta
+        devConsole.setMaxWidth(800);
+        devConsole.setPrefHeight(300);
         Label consoleTitle = new Label("Consola de Desarrollador");
         consoleTitle.setStyle("-fx-text-fill: #00ff00; -fx-font-family: 'Consolas', 'Monospaced';");
+        // --- Consola de Desarrollador (Panel Admin / Lanzamiento) ---
+        devConsole = new VBox(15);
+        devConsole.setAlignment(Pos.CENTER);
+        // Estilo moderno, oscuro y translúcido
+        devConsole.setStyle("-fx-background-color: rgba(10, 10, 10, 0.95); -fx-background-radius: 20; -fx-padding: 40; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.8), 20, 0, 0, 0);");
+        devConsole.setVisible(false);
+        devConsole.setOpacity(0); // Para animación de entrada
+        devConsole.setMaxSize(900, 600);
+
+        // Reloj Grande (Solo deja el reloj)
+        Label consoleClock = new Label();
+        consoleClock.setStyle("-fx-text-fill: #00b4db; -fx-font-size: 64px; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, rgba(0,180,219,0.4), 15, 0, 0, 0);");
+        Timeline clockUpdater = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            consoleClock.setText(java.time.LocalTime.now().toString().substring(0, 5));
+        }));
+        clockUpdater.setCycleCount(Timeline.INDEFINITE);
+        clockUpdater.play();
+
+        Label consoleTitle = new Label("Iniciando Minecraft...");
+        consoleTitle.setStyle("-fx-text-fill: #aaa; -fx-font-size: 18px;");
+
         devConsoleOutput = new TextArea();
         devConsoleOutput.setEditable(false);
         devConsoleOutput.setStyle("-fx-control-inner-background: #000; -fx-text-fill: #00ff00; -fx-font-family: 'Consolas', 'Monospaced';");
+        devConsoleOutput.setWrapText(true);
+        // Estilo terminal hacker bonito
+        devConsoleOutput.setStyle("-fx-control-inner-background: #151515; -fx-text-fill: #00ff00; -fx-font-family: 'Consolas', 'Monospaced'; -fx-highlight-fill: #00ff00; -fx-highlight-text-fill: #000; -fx-background-radius: 10; -fx-border-color: #333; -fx-border-radius: 10;");
         VBox.setVgrow(devConsoleOutput, Priority.ALWAYS);
         devConsole.getChildren().addAll(consoleTitle, devConsoleOutput);
+        
+        Button btnHideConsole = new Button("Ocultar Consola");
+        btnHideConsole.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 20; -fx-padding: 10 20;");
+        btnHideConsole.setOnAction(e -> {
+            // Restaurar vista normal
+            FadeTransition ft = new FadeTransition(Duration.millis(300), devConsole);
+            ft.setToValue(0);
+            ft.setOnFinished(ev -> { devConsole.setVisible(false); layout.setVisible(true); layout.setOpacity(1); });
+            ft.play();
+        });
+
+        devConsole.getChildren().addAll(consoleClock, consoleTitle, devConsoleOutput, btnHideConsole);
         
         playArea.getChildren().addAll(versionSelector, btnPlay, btnRepair);
         
@@ -255,6 +317,7 @@ public class InicioView {
         VBox.setVgrow(spacerBottom, Priority.ALWAYS);
 
         centerArea.getChildren().addAll(spacerTop, title, playArea, socialBox, devConsole, spacerBottom);
+        centerArea.getChildren().addAll(spacerTop, title, playArea, socialBox, spacerBottom);
 
         // --- DERECHA (Noticias Mini) ---
         VBox rightWidgets = new VBox(20);
@@ -263,7 +326,7 @@ public class InicioView {
         
         // Widget Estado del Servidor
         VBox serverWidget = new VBox(10);
-        serverWidget.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15;");
+        serverWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
         Label serverTitle = new Label("Estado del Servidor");
         serverTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
         
@@ -278,7 +341,7 @@ public class InicioView {
 
         // Widget Sistema (RAM + Hora) - Movido a la derecha
         VBox sysWidget = new VBox(10);
-        sysWidget.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15;");
+        sysWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
         
         HBox sysHeader = new HBox(10);
         sysHeader.setAlignment(Pos.CENTER_LEFT);
@@ -315,18 +378,20 @@ public class InicioView {
         
         rightWidgets.getChildren().addAll(serverWidget, sysWidget, musicWidget);
 
-        layout.setLeft(leftWidgets);
+        layout.setLeft(sidebar);
         layout.setCenter(centerArea);
         layout.setRight(rightWidgets);
 
         root.getChildren().add(layout);
+        // Añadir layout y consola al root (StackPane permite superposición)
+        root.getChildren().addAll(layout, devConsole);
 
         return root;
     }
 
     private VBox createMusicWidget() {
         VBox widget = new VBox(10);
-        widget.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15;");
+        widget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
         
         Label header = new Label("GMusic");
         header.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
@@ -360,6 +425,19 @@ public class InicioView {
         btnNext.setDisable(true);
         
         return widget;
+    }
+
+    // [NUEVO] Método auxiliar para cargar iconos fácilmente
+    private ImageView loadIcon(String path, double size) {
+        try {
+            String resolved = resolveAssetPath(path);
+            ImageView iv = new ImageView(new Image(resolved));
+            iv.setFitWidth(size);
+            iv.setFitHeight(size);
+            iv.setPreserveRatio(true);
+            return iv;
+        } catch (Exception e) { }
+        return null;
     }
 
     // [FIX] Método ROBUSTO para encontrar assets en cualquier entorno (IDE, Portable, EXE)
@@ -409,8 +487,23 @@ public class InicioView {
         }
 
         // Mostrar consola
+        // Animación: Ocultar interfaz principal (Widget)
+        if (!root.getChildren().isEmpty() && root.getChildren().get(0) instanceof BorderPane) {
+            Node mainLayout = root.getChildren().get(0);
+            FadeTransition ftOut = new FadeTransition(Duration.millis(500), mainLayout);
+            ftOut.setFromValue(1); ftOut.setToValue(0);
+            ftOut.setOnFinished(e -> mainLayout.setVisible(false));
+            ftOut.play();
+        }
+
+        // Animación: Mostrar Consola (Panel Admin) con Reloj
         devConsole.setVisible(true);
         devConsole.setManaged(true);
+        devConsole.toFront();
+        FadeTransition ftIn = new FadeTransition(Duration.millis(500), devConsole);
+        ftIn.setFromValue(0); ftIn.setToValue(1);
+        ftIn.play();
+
         devConsoleOutput.clear();
         devConsoleOutput.appendText("Iniciando Minecraft " + version + "...\n");
         
@@ -1122,10 +1215,17 @@ public class InicioView {
                 lastSessionModified = currentModified;
                 JsonObject session = loadSession();
                 String name = session.has("username") ? session.get("username").getAsString() : "Invitado";
-                Platform.runLater(() -> lblUser.setText(name));
+                Platform.runLater(() -> {
+                    lblUser.setText(name);
+                    if (!"Invitado".equals(name)) {
+                        // Cargar cabeza 3D del skin usando el nombre de usuario
+                        Image skinHead = new Image("https://minotar.net/cube/" + name + "/64.png", true);
+                        avatar.setFill(new ImagePattern(skinHead));
+                    }
+                });
             }
         } else {
-            Platform.runLater(() -> lblUser.setText("Invitado"));
+            Platform.runLater(() -> { lblUser.setText("Invitado"); avatar.setFill(Color.web("#0078d7")); });
         }
     }
 

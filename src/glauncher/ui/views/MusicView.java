@@ -34,7 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MusicView {
-
+    
     private BorderPane root;
     private StackPane contentArea;
     

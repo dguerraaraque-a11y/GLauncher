@@ -79,14 +79,19 @@ public class MainView {
 
         // Barra inferior flotante
         HBox navBar = new HBox(15);
-        navBar.setMaxHeight(90); // Aumentado para evitar que se vea aplastado
-        navBar.setMaxWidth(Region.USE_PREF_SIZE); // La barra se ajustará al tamaño de los botones, haciéndola más compacta
+        navBar.setAlignment(Pos.CENTER); // [FIX] Centrar botones verticalmente en la textura
+        navBar.setMaxHeight(71); // [FIX] Altura exacta de tu textura (71px)
 
         // Aplicar textura a la barra flotante
         File navBarTexture = new File("assets/texture/bar_flotanting.png");
         if (navBarTexture.exists()) {
             // Cargar imagen sin suavizado (smooth=false) para que el pixel art se vea nítido
-            Image img = new Image(navBarTexture.toURI().toString(), 0, 0, false, false);
+            // [FIX] Carga síncrona (false al final) para leer el ancho real y evitar auto-escalado
+            Image img = new Image(navBarTexture.toURI().toString(), 0, 0, false, false, false);
+            
+            // [FIX] Fijar el ancho de la barra al de la imagen para que no se deforme ni se mueva el centro
+            navBar.setPrefWidth(img.getWidth());
+            navBar.setMaxWidth(Region.USE_PREF_SIZE);
             
             BackgroundImage bgImage = new BackgroundImage(
                 img, BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT, 
@@ -95,8 +100,9 @@ public class MainView {
             
             navBar.setBackground(new Background(bgImage));
             // [FIX] Usar setPadding en lugar de setStyle para evitar que CSS sobrescriba la textura
-            navBar.setPadding(new Insets(15, 35, 15, 35));
+            navBar.setPadding(new Insets(0, 35, 0, 35)); // Padding vertical 0 para usar toda la altura de 71px
         } else {
+            navBar.setMaxWidth(Region.USE_PREF_SIZE);
             navBar.setStyle("-fx-background-color: rgba(20, 20, 20, 0.9); -fx-background-radius: 25; -fx-padding: 10 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 5);");
         }
 

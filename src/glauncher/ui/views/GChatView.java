@@ -44,6 +44,7 @@ public class GChatView {
     private final Gson gson = new Gson();
     private String authToken = null;
     private int currentUserId = -1;
+    private String currentUsername = "Yo"; // Valor por defecto
 
     private JsonArray fullFriendList = new JsonArray();
     private TextField searchFriendsField;
@@ -56,6 +57,8 @@ public class GChatView {
     private ScrollPane chatScroll;
     private VBox messagesContainer;
     private TextField messageInput;
+    private TextField searchChatField; // Nuevo campo de búsqueda
+    private Button saveChatButton;     // Nuevo botón de guardar
     private Label chatHeaderLabel;
     private Label statusLabel;
     
@@ -176,6 +179,27 @@ public class GChatView {
         typingIndicator.setVisible(false);
         chatHeader.getChildren().addAll(chatHeaderLabel, spacer, typingIndicator);
 
+        // --- BARRA DE HERRAMIENTAS DEL CHAT (Búsqueda y Guardado) ---
+        HBox chatTools = new HBox(10);
+        chatTools.setAlignment(Pos.CENTER_LEFT);
+        chatTools.setPadding(new Insets(5, 10, 5, 10));
+        chatTools.setStyle("-fx-background-color: rgba(0,0,0,0.2); -fx-background-radius: 5;");
+
+        searchChatField = new TextField();
+        searchChatField.setPromptText("Buscar en el chat...");
+        searchChatField.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-font-size: 12px; -fx-background-radius: 15;");
+        searchChatField.setPrefWidth(200);
+        searchChatField.textProperty().addListener((obs, oldVal, newVal) -> filterMessages(newVal));
+
+        saveChatButton = new Button("Guardar Chat");
+        saveChatButton.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 5;");
+        saveChatButton.setOnAction(e -> saveChat());
+
+        Region toolSpacer = new Region();
+        HBox.setHgrow(toolSpacer, Priority.ALWAYS);
+
+        chatTools.getChildren().addAll(searchChatField, toolSpacer, saveChatButton);
+
         // Mensajes
         messagesContainer = new VBox(10);
         messagesContainer.setPadding(new Insets(10));
@@ -215,7 +239,7 @@ public class GChatView {
         
         inputBox.getChildren().addAll(btnAttach, messageInput, btnEmoji, btnSend);
 
-        chatArea.getChildren().addAll(chatHeader, chatScroll, inputBox);
+        chatArea.getChildren().addAll(chatHeader, chatTools, chatScroll, inputBox);
 
         // Estado Inicial (Sin chat seleccionado)
         StackPane centerStack = new StackPane();
@@ -245,6 +269,7 @@ public class GChatView {
                             String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
                             JsonObject json = gson.fromJson(payload, JsonObject.class);
                             if (json.has("user_id")) currentUserId = json.get("user_id").getAsInt();
+                            if (json.has("username")) currentUsername = json.get("username").getAsString();
                         }
                     }
                 }
@@ -396,11 +421,18 @@ public class GChatView {
     private void refreshChat(int friendId) {
         try {
             String response = sendRequest("GET", "/gchat/history/" + friendId, null);
-            if (response == null) return;
+            if (response == null) {
+                // Si falla la conexión, intentar cargar localmente
+                loadMessagesFromFile();
+                return;
+            }
             
             JsonArray messages = gson.fromJson(response, JsonArray.class);
             Platform.runLater(() -> updateChatMessages(messages));
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) { 
+            e.printStackTrace();
+            loadMessagesFromFile(); // Cargar caché en caso de error
+        }
     }
 
     private void updateChatMessages(JsonArray messages) {
@@ -415,6 +447,10 @@ public class GChatView {
             String timestamp = m.has("timestamp") ? m.get("timestamp").getAsString() : "";
             
             boolean isMe = (senderId == currentUserId);
+            
+            // Determinar nombre para guardado/búsqueda
+            String senderName = isMe ? currentUsername : chatHeaderLabel.getText();
+            String searchContent = senderName + ": " + content;
             
             // Contenedor para el mensaje completo (burbuja + hora)
             VBox messageUnit = new VBox(3);
@@ -469,9 +505,80 @@ public class GChatView {
             lblTimestamp.setPadding(new Insets(0, 8, 0, 8)); // Pequeño padding horizontal
 
             messageUnit.getChildren().addAll(contentNode, lblTimestamp);
+            
+            // Guardar datos para búsqueda y exportación
+            messageUnit.setUserData(searchContent);
+            
             messagesContainer.getChildren().add(messageUnit);
         }
         chatScroll.setVvalue(1.0);
+    }
+
+    // --- NUEVAS FUNCIONALIDADES ---
+
+    private void filterMessages(String query) {
+        String lowerQuery = query.toLowerCase();
+        for (Node node : messagesContainer.getChildren()) {
+            if (node instanceof VBox) {
+                String content = (String) node.getUserData();
+                if (content != null) {
+                    boolean match = content.toLowerCase().contains(lowerQuery);
+                    node.setVisible(match);
+                    node.setManaged(match);
+                }
+            }
+        }
+    }
+
+    private void saveChat() {
+        try (FileWriter writer = new FileWriter(new File(DATA_DIR, "gchat_log.txt"))) {
+            for (Node node : messagesContainer.getChildren()) {
+                if (node.getUserData() != null) {
+                    writer.write(node.getUserData().toString() + "\n");
+                }
+            }
+            Platform.runLater(() -> MainView.showNotification("Guardado", "Chat guardado localmente.", "success"));
+        } catch (IOException e) {
+            e.printStackTrace();
+            Platform.runLater(() -> MainView.showNotification("Error", "No se pudo guardar el chat.", "error"));
+        }
+    }
+
+    private void loadMessagesFromFile() {
+        File file = new File(DATA_DIR, "gchat_log.txt");
+        if (!file.exists()) return;
+
+        Platform.runLater(() -> {
+            // Evitar recargar si ya hay mensajes (simple debounce visual)
+            if (!messagesContainer.getChildren().isEmpty()) return;
+
+            MainView.showNotification("Offline", "Error de conexión. Mostrando historial local.", "warning");
+            messagesContainer.getChildren().clear();
+            
+            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    int splitIndex = line.indexOf(": ");
+                    if (splitIndex != -1) {
+                        String user = line.substring(0, splitIndex);
+                        String content = line.substring(splitIndex + 2);
+                        boolean isMe = user.equals(currentUsername) || user.equals("Yo");
+
+                        VBox messageUnit = new VBox(3);
+                        messageUnit.setAlignment(isMe ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+                        
+                        Label lblMsg = new Label(content);
+                        lblMsg.setWrapText(true);
+                        lblMsg.setMaxWidth(300);
+                        lblMsg.setStyle("-fx-text-fill: white; -fx-background-color: " + (isMe ? "#0078d7" : "#444") + "; -fx-padding: 8 12; -fx-background-radius: 15;");
+                        
+                        messageUnit.getChildren().add(lblMsg);
+                        messageUnit.setUserData(line);
+                        messagesContainer.getChildren().add(messageUnit);
+                    }
+                }
+            } catch (Exception e) { e.printStackTrace(); }
+        });
     }
 
     private void sendMessage() {

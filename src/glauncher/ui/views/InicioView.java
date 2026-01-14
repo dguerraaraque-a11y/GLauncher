@@ -260,15 +260,6 @@ public class InicioView {
         
         socialBox.getChildren().addAll(btnDiscord, btnYoutube, btnWeb);
         
-        // --- Consola de Desarrollador (Oculta por defecto) ---
-        devConsole = new VBox(5);
-        devConsole.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 10; -fx-background-radius: 10;");
-        devConsole.setVisible(false); // Oculta por defecto
-        devConsole.setManaged(false); // No ocupa espacio cuando está oculta
-        devConsole.setMaxWidth(800);
-        devConsole.setPrefHeight(300);
-        Label consoleTitle = new Label("Consola de Desarrollador");
-        consoleTitle.setStyle("-fx-text-fill: #00ff00; -fx-font-family: 'Consolas', 'Monospaced';");
         // --- Consola de Desarrollador (Panel Admin / Lanzamiento) ---
         devConsole = new VBox(15);
         devConsole.setAlignment(Pos.CENTER);
@@ -316,7 +307,6 @@ public class InicioView {
         Region spacerBottom = new Region();
         VBox.setVgrow(spacerBottom, Priority.ALWAYS);
 
-        centerArea.getChildren().addAll(spacerTop, title, playArea, socialBox, devConsole, spacerBottom);
         centerArea.getChildren().addAll(spacerTop, title, playArea, socialBox, spacerBottom);
 
         // --- DERECHA (Noticias Mini) ---
@@ -382,7 +372,6 @@ public class InicioView {
         layout.setCenter(centerArea);
         layout.setRight(rightWidgets);
 
-        root.getChildren().add(layout);
         // Añadir layout y consola al root (StackPane permite superposición)
         root.getChildren().addAll(layout, devConsole);
 
@@ -1215,12 +1204,20 @@ public class InicioView {
                 lastSessionModified = currentModified;
                 JsonObject session = loadSession();
                 String name = session.has("username") ? session.get("username").getAsString() : "Invitado";
+                String avatarPath = session.has("avatar_path") && !session.get("avatar_path").isJsonNull() ? session.get("avatar_path").getAsString() : null;
+                
                 Platform.runLater(() -> {
                     lblUser.setText(name);
-                    if (!"Invitado".equals(name)) {
+                    if (avatarPath != null && new File(avatarPath).exists()) {
+                        // Cargar avatar personalizado local
+                        Image customAvatar = new Image(new File(avatarPath).toURI().toString(), false);
+                        avatar.setFill(new ImagePattern(customAvatar));
+                    } else if (!"Invitado".equals(name)) {
                         // Cargar cabeza 3D del skin usando el nombre de usuario
                         Image skinHead = new Image("https://minotar.net/cube/" + name + "/64.png", true);
                         avatar.setFill(new ImagePattern(skinHead));
+                    } else {
+                        avatar.setFill(Color.web("#0078d7"));
                     }
                 });
             }

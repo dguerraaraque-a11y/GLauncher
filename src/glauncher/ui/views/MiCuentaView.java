@@ -15,7 +15,9 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -26,6 +28,7 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextArea;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.Group;
@@ -55,6 +58,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javafx.embed.swing.SwingFXUtils;
+import javax.imageio.ImageIO;
+import javafx.scene.SnapshotParameters;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.nio.charset.StandardCharsets;
@@ -131,6 +137,63 @@ public class MiCuentaView {
         Button btnMicrosoft = new Button("Iniciar Sesión con Microsoft");
         btnMicrosoft.setStyle("-fx-background-color: #00A4EF; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 20; -fx-cursor: hand; -fx-background-radius: 5;");
 
+        // --- GLauncher Login ---
+        VBox loginBox = new VBox(10);
+        loginBox.setAlignment(Pos.CENTER);
+        loginBox.setStyle("-fx-background-color: rgba(255, 255, 255, 0.05); -fx-padding: 20; -fx-background-radius: 10;");
+        loginBox.setMaxWidth(300);
+
+        Label lblLoginTitle = new Label("Iniciar Sesión con Cuenta GLauncher");
+        lblLoginTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
+
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Nombre de usuario");
+        usernameField.setStyle("-fx-background-color: #333; -fx-text-fill: white;");
+
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("Contraseña");
+        passwordField.setStyle("-fx-background-color: #333; -fx-text-fill: white;");
+
+        Button loginButton = new Button("Iniciar Sesión");
+        loginButton.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold;");
+        loginButton.setMaxWidth(Double.MAX_VALUE);
+
+        loginButton.setOnAction(e -> {
+            String user = usernameField.getText().trim();
+            String pass = passwordField.getText().trim();
+            if (user.isEmpty() || pass.isEmpty()) return;
+
+            new Thread(() -> {
+                try {
+                    JsonObject payload = new JsonObject();
+                    payload.addProperty("username", user);
+                    payload.addProperty("password", pass);
+                    String response = postJson(API_BASE + "/auth/login", payload);
+                    JsonObject json = gson.fromJson(response, JsonObject.class);
+
+                    if (json.has("username") || json.has("token")) {
+                        String newName = json.has("username") ? json.get("username").getAsString() : user;
+                        Platform.runLater(() -> {
+                            updateUsername(newName);
+                            isLoggedIn = true;
+                            showDashboard();
+                            MainView.showNotification("Éxito", "Has iniciado sesión como " + newName, "info");
+                        });
+                    } else {
+                        Platform.runLater(() -> {
+                            MainView.showNotification("Error", "Usuario o contraseña incorrectos", "error");
+                            passwordField.clear();
+                        });
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Platform.runLater(() -> MainView.showNotification("Error", "Error de conexión", "error"));
+                }
+            }).start();
+        });
+
+        loginBox.getChildren().addAll(lblLoginTitle, usernameField, passwordField, loginButton);
+
         btnGoogle.setOnAction(e -> openLoginUrl("google"));
         btnMicrosoft.setOnAction(e -> startMicrosoftLogin());
 
@@ -143,7 +206,7 @@ public class MiCuentaView {
             showDashboard();
         });
 
-        root.getChildren().addAll(title, subtitle, btnGoogle, btnMicrosoft, btnSimulate);
+        root.getChildren().addAll(title, subtitle, loginBox, btnGoogle, btnMicrosoft, btnSimulate);
 
         // Animaciones
         FadeTransition ft = new FadeTransition(javafx.util.Duration.millis(800), root);
@@ -169,8 +232,15 @@ public class MiCuentaView {
         // Perfil Mini
         Circle avatar = new Circle(40);
         // Cargar imagen de perfil (default-avatar.png)
-        Image profileImg = new Image("file:assets/avatars/default-avatar.png");
-        if (!profileImg.isError()) {
+        String avatarPath = getSessionAvatarPath();
+        Image profileImg = null;
+        if (avatarPath != null && new File(avatarPath).exists()) {
+            profileImg = new Image("file:" + avatarPath);
+        } else {
+            profileImg = new Image("file:assets/avatars/default-avatar.png");
+        }
+
+        if (profileImg != null && !profileImg.isError()) {
             avatar.setFill(new ImagePattern(profileImg));
         } else {
             avatar.setFill(Color.web("#555"));
@@ -495,7 +565,33 @@ public class MiCuentaView {
             }
         });
 
-        generalBox.getChildren().addAll(lblName, userField, btnSaveName);
+        // Sección de Avatar
+        Label lblAvatar = new Label("Foto de Perfil:");
+        lblAvatar.setStyle("-fx-text-fill: #aaa;");
+        
+        HBox avatarBox = new HBox(10);
+        Button btnChangeAvatar = new Button("Cambiar Foto");
+        btnChangeAvatar.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-cursor: hand;");
+        btnChangeAvatar.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Seleccionar Imagen");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Imágenes", "*.png", "*.jpg", "*.jpeg"));
+            File f = fc.showOpenDialog(rootPane.getScene().getWindow());
+            if (f != null) {
+                showCropDialog(f);
+            }
+        });
+        
+        Button btnResetAvatar = new Button("Restablecer");
+        btnResetAvatar.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
+        btnResetAvatar.setOnAction(e -> {
+            updateSessionAvatar(null);
+            showDashboard();
+            MainView.showNotification("Perfil", "Foto restablecida.", "info");
+        });
+        avatarBox.getChildren().addAll(btnChangeAvatar, btnResetAvatar);
+
+        generalBox.getChildren().addAll(lblName, userField, btnSaveName, new javafx.scene.control.Separator(javafx.geometry.Orientation.HORIZONTAL), lblAvatar, avatarBox);
         Tab tabGeneral = new Tab("General", generalBox);
         tabGeneral.setClosable(false);
 
@@ -697,6 +793,91 @@ public class MiCuentaView {
             }
         } catch (Exception e) { e.printStackTrace(); }
         return null;
+    }
+
+    private String getSessionAvatarPath() {
+        if (SESSION_FILE.exists()) {
+            try (FileReader reader = new FileReader(SESSION_FILE)) {
+                JsonObject session = gson.fromJson(reader, JsonObject.class);
+                if (session.has("avatar_path") && !session.get("avatar_path").isJsonNull()) {
+                    return session.get("avatar_path").getAsString();
+                }
+            } catch (Exception e) {}
+        }
+        return null;
+    }
+
+    private void updateSessionAvatar(String path) {
+        try {
+            JsonObject session = new JsonObject();
+            if (SESSION_FILE.exists()) {
+                try (FileReader reader = new FileReader(SESSION_FILE)) {
+                    session = gson.fromJson(reader, JsonObject.class);
+                }
+            }
+            if (path == null) session.remove("avatar_path");
+            else session.addProperty("avatar_path", path);
+            
+            try (FileWriter writer = new FileWriter(SESSION_FILE)) {
+                gson.toJson(session, writer);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void showCropDialog(File sourceFile) {
+        try {
+            Image sourceImage = new Image(sourceFile.toURI().toString());
+            if (sourceImage.isError()) return;
+
+            Dialog<Boolean> dialog = new Dialog<>();
+            dialog.setTitle("Recortar Imagen");
+            dialog.setHeaderText("Ajusta tu foto de perfil");
+            dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+            ImageView imageView = new ImageView(sourceImage);
+            imageView.setPreserveRatio(true);
+            imageView.setFitWidth(400);
+            
+            ScrollPane scrollPane = new ScrollPane(imageView);
+            scrollPane.setPrefSize(300, 300);
+            scrollPane.setPannable(true);
+            scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+
+            // Overlay circular para previsualizar
+            StackPane cropContainer = new StackPane(scrollPane);
+            Circle clip = new Circle(150);
+            clip.setFill(Color.TRANSPARENT);
+            clip.setStroke(Color.WHITE);
+            clip.setStrokeWidth(3);
+            clip.setMouseTransparent(true);
+            
+            cropContainer.getChildren().add(clip);
+            cropContainer.setAlignment(Pos.CENTER);
+            
+            dialog.getDialogPane().setContent(cropContainer);
+            
+            dialog.setResultConverter(btn -> btn == ButtonType.OK);
+            
+            if (dialog.showAndWait().orElse(false)) {
+                // Snapshot del área visible
+                WritableImage croppedImage = cropContainer.snapshot(new SnapshotParameters(), null);
+                
+                // Guardar imagen recortada
+                File avatarsDir = new File(DATA_DIR, "avatars");
+                if (!avatarsDir.exists()) avatarsDir.mkdirs();
+                File destFile = new File(avatarsDir, "avatar_" + System.currentTimeMillis() + ".png");
+                
+                ImageIO.write(SwingFXUtils.fromFXImage(croppedImage, null), "png", destFile);
+                
+                updateSessionAvatar(destFile.getAbsolutePath());
+                showDashboard();
+                MainView.showNotification("Perfil", "Foto actualizada.", "success");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            MainView.showNotification("Error", "No se pudo procesar la imagen.", "error");
+        }
     }
 
     // --- Persistencia de Datos ---

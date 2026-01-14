@@ -8,93 +8,123 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ShopView {
 
+    private final String API_BASE_URL = "https://glauncher-api.onrender.com";
+    private final Gson gson = new Gson();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private FlowPane itemsGrid;
 
     public Parent getView() {
         VBox root = new VBox(20);
         root.setPadding(new Insets(20));
-        root.setAlignment(Pos.TOP_CENTER);
+        root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.6); -fx-background-radius: 15;");
 
         Label title = new Label("Tienda de Cosméticos");
-        title.setStyle("-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
+        VBox.setMargin(title, new Insets(0, 0, 10, 0));
+        root.setAlignment(Pos.TOP_CENTER);
         
-        itemsGrid = new FlowPane();
-        itemsGrid.setHgap(20);
-        itemsGrid.setVgap(20);
+        itemsGrid = new FlowPane(20, 20); // Hgap, Vgap
         itemsGrid.setAlignment(Pos.CENTER);
+        itemsGrid.setPadding(new Insets(10));
 
         ScrollPane scroll = new ScrollPane(itemsGrid);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
         root.getChildren().addAll(title, scroll);
+        
         fetchShopItems();
+        
         return root;
     }
 
     private void fetchShopItems() {
-        Thread t = new Thread(() -> {
+        executor.submit(() -> {
             try {
-                String json = fetchUrl("https://glauncher-api.onrender.com/api/shop/items");
-                JsonArray items = new Gson().fromJson(json, JsonArray.class);
-                
-                Platform.runLater(() -> {
-                    for (JsonElement el : items) {
-                        itemsGrid.getChildren().add(createItemCard(el.getAsJsonObject()));
-                    }
-                });
+                URL url = new URL(API_BASE_URL + "/api/shop"); // Endpoint corregido
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("User-Agent", "GLauncher/1.0");
+
+                if (conn.getResponseCode() == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    JsonArray items = gson.fromJson(reader, JsonArray.class);
+                    
+                    Platform.runLater(() -> {
+                        itemsGrid.getChildren().clear();
+                        for (JsonElement itemElement : items) {
+                            itemsGrid.getChildren().add(createItemCard(itemElement.getAsJsonObject()));
+                        }
+                    });
+                } else {
+                     Platform.runLater(() -> {
+                        Label errorLabel = new Label("No se pudieron cargar los artículos. Código: " + conn.getResponseCode());
+                        errorLabel.setStyle("-fx-text-fill: #ff8080;");
+                        itemsGrid.getChildren().add(errorLabel);
+                    });
+                }
             } catch (Exception e) {
+                Platform.runLater(() -> {
+                    Label errorLabel = new Label("Error de conexión al cargar la tienda.");
+                    errorLabel.setStyle("-fx-text-fill: #ff8080;");
+                    itemsGrid.getChildren().add(errorLabel);
+                });
                 e.printStackTrace();
             }
         });
-        t.setDaemon(true);
-        t.start();
     }
 
     private VBox createItemCard(JsonObject item) {
         VBox card = new VBox(10);
-        card.setStyle("-fx-background-color: rgba(50,50,50,0.8); -fx-background-radius: 10; -fx-padding: 10;");
-        card.setPrefSize(150, 200);
-        card.setAlignment(Pos.CENTER);
+        card.setStyle("-fx-background-color: rgba(255, 255, 255, 0.05); -fx-background-radius: 15; -fx-border-radius: 15;");
+        card.setPrefSize(180, 250);
+        card.setAlignment(Pos.TOP_CENTER);
+        card.setPadding(new Insets(15));
 
-        String imgUrl = item.get("image_url").getAsString();
-        if (imgUrl.startsWith("/")) imgUrl = "https://glauncher.vercel.app" + imgUrl;
-        if (imgUrl.startsWith("/")) imgUrl = "http://localhost:5000" + imgUrl;
-        
-        ImageView img = new ImageView(new Image(imgUrl, 100, 100, true, true, true));
+        // [CORREGIDO] Construir la URL de la imagen de forma segura
+        String imageUrl = API_BASE_URL + item.get("image_url").getAsString();
+        ImageView imageView = new ImageView(new Image(imageUrl, 120, 120, true, true, true));
+        imageView.setPreserveRatio(true);
         
         Label name = new Label(item.get("name").getAsString());
-        name.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        name.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+        name.setAlignment(Pos.CENTER);
+        name.setWrapText(true);
         
-        Label price = new Label(item.get("price").getAsInt() + " GCoins");
-        price.setStyle("-fx-text-fill: gold;");
+        Label price = new Label(item.get("price").getAsInt() + " G-Coins");
+        price.setStyle("-fx-text-fill: #FFD700; -fx-font-size: 14px; -fx-font-weight: bold;");
 
-        card.getChildren().addAll(img, name, price);
+        Button buyButton = new Button("Comprar");
+        buyButton.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        buyButton.setOnAction(e -> {
+            // TODO: Implementar lógica de compra
+            System.out.println("Intentando comprar: " + item.get("name").getAsString());
+        });
+
+        // Espaciador para empujar el botón hacia abajo
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        card.getChildren().addAll(imageView, name, price, spacer, buyButton);
         return card;
-    }
-
-    private String fetchUrl(String urlString) throws Exception {
-        URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-            StringBuilder content = new StringBuilder();
-            String line; while ((line = in.readLine()) != null) content.append(line);
-            return content.toString();
-        }
     }
 }

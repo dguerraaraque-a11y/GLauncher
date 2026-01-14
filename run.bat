@@ -53,7 +53,7 @@ powershell -Command "Get-ChildItem -Path '%BASE_DIR%src' -Recurse -Filter *.java
 REM Compilar
 if not exist "out" mkdir "out"
 echo Compilando proyecto...
-"%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web -d out @sources.txt
+"%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -d out @sources.txt
 if %errorlevel% neq 0 (
     echo [ERROR] Error de compilacion detectado.
     pause
@@ -62,6 +62,6 @@ if %errorlevel% neq 0 (
 
 REM Ejecutar
 echo Ejecutando GLauncher...
-"%JAVA_CMD%" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web -cp "!LIBS_CP!" glauncher.GLauncher
+"%JAVA_CMD%" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -cp "!LIBS_CP!" glauncher.GLauncher
 
 pause

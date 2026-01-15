@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import glauncher.MainView;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
@@ -15,6 +16,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 
+import java.awt.Graphics2D;
 import java.io.*;
 import java.awt.Desktop;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +24,7 @@ import java.security.MessageDigest;
 import java.math.BigInteger;
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.net.URLEncoder;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -43,6 +46,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import javax.imageio.ImageIO;
+import javafx.embed.swing.SwingFXUtils;
 
 public class ServersView {
 
@@ -119,9 +124,7 @@ public class ServersView {
 
         // Inicializar Overlay de Modrinth
         modrinthOverlay = createModrinthOverlay();
-        rootStack.getChildren().add(modrinthOverlay); // Añadir antes del progressOverlay si se quiere debajo, o después
         modDetailsOverlay = createModDetailsOverlay();
-        rootStack.getChildren().add(modDetailsOverlay);
 
         rootPane.setLeft(sidebar);
         rootPane.setCenter(contentPanel);
@@ -307,8 +310,13 @@ public class ServersView {
         Button btnManage = new Button("Gestionar");
         btnManage.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-font-weight: bold;");
         btnManage.setOnAction(e -> openServerDashboard(serverDir));
+        
+        Button btnDelete = new Button("🗑");
+        btnDelete.setTooltip(new Tooltip("Eliminar Servidor"));
+        btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnDelete.setOnAction(e -> confirmDeleteServer(serverDir));
 
-        card.getChildren().addAll(icon, info, btnManage);
+        card.getChildren().addAll(icon, info, btnManage, btnDelete);
         return card;
     }
 
@@ -328,7 +336,7 @@ public class ServersView {
         btnBack.setOnAction(e -> { refreshMyServersList(); contentPanel.getChildren().setAll(createMyServersView()); });
         
         Label title = new Label("Gestionando: " + serverName);
-        title.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold; -fx-font-family: 'Minecraft', 'Segoe UI', sans-serif;");
         
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -340,23 +348,74 @@ public class ServersView {
         header.getChildren().addAll(btnBack, title, spacer, btnStartServer);
 
         TabPane tabs = new TabPane();
-        tabs.setStyle("-fx-background-color: transparent;");
+        tabs.setStyle("-fx-background-color: transparent; -fx-tab-min-width: 100px;");
+        tabs.getStylesheets().add("data:text/css,.tab-pane .tab-header-area .tab-header-background { -fx-background-color: transparent; } .tab { -fx-background-color: #333; -fx-text-fill: white; -fx-background-radius: 5 5 0 0; } .tab:selected { -fx-background-color: #0078d7; } .tab-label { -fx-text-fill: white; -fx-font-weight: bold; }");
 
-        // --- TAB 1: GENERAL (Editar Info) ---
+        // --- TAB 1: AJUSTES DEL SERVIDOR (Antes General) ---
         VBox generalTab = new VBox(15);
         generalTab.setPadding(new Insets(20));
 
-        TextField txtName = new TextField(serverName);
-        txtName.setPromptText("Nombre del Servidor");
-        
         // Editor de MOTD con colores
         Label lblMotd = new Label("Descripción (MOTD) - Usa los botones para colores:");
         lblMotd.setStyle("-fx-text-fill: #ccc;");
         TextArea txtMotd = new TextArea();
+        txtMotd.setStyle("-fx-control-inner-background: #222; -fx-text-fill: white; -fx-font-family: 'Minecraft', 'Monospaced';");
         Properties props = loadServerProperties(serverDir);
         txtMotd.setText(props.getProperty("motd", "A Minecraft Server"));
         
         FlowPane colorPalette = createColorPalette(txtMotd);
+
+        // --- CONFIGURACIÓN BÁSICA (Nombre, IP, Puerto, Icono) ---
+        GridPane configGrid = new GridPane();
+        configGrid.setHgap(15); configGrid.setVgap(15);
+        
+        TextField txtName = new TextField(serverName);
+        txtName.setPromptText("Nombre del Servidor");
+        styleField(txtName);
+
+        TextField txtIp = new TextField(props.getProperty("server-ip", ""));
+        txtIp.setPromptText("IP (Dejar vacío para todas las interfaces)");
+        txtIp.setTooltip(new Tooltip("¡IMPORTANTE! Deja esto vacío para que el servidor inicie correctamente.\nSolo pon una IP si necesitas restringir la conexión a una tarjeta de red específica (Binding).\nPara usar un dominio, configúralo en tu DNS apuntando a tu IP pública."));
+        styleField(txtIp);
+
+        TextField txtPort = new TextField(props.getProperty("server-port", "25565"));
+        txtPort.setPromptText("Puerto (25565)");
+        txtPort.setTooltip(new Tooltip("Puerto de conexión (Default: 25565)"));
+        styleField(txtPort);
+        txtPort.setMaxWidth(100);
+
+        // Icono del Servidor
+        ImageView serverIconView = new ImageView();
+        serverIconView.setFitWidth(64); serverIconView.setFitHeight(64);
+        File iconFile = new File(serverDir, "server-icon.png");
+        if (iconFile.exists()) serverIconView.setImage(new Image(iconFile.toURI().toString()));
+        else serverIconView.setImage(new Image("https://assets.ppy.sh/beatmaps/12345/covers/list.jpg")); // Placeholder
+
+        Button btnChangeIcon = new Button("Cambiar Icono");
+        btnChangeIcon.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand;");
+        btnChangeIcon.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Imágenes", "*.png", "*.jpg"));
+            File f = fc.showOpenDialog(null);
+            if (f != null) {
+                try {
+                    // Redimensionar a 64x64 y guardar como PNG
+                    java.awt.image.BufferedImage original = ImageIO.read(f);
+                    java.awt.image.BufferedImage resized = new java.awt.image.BufferedImage(64, 64, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                    Graphics2D g = resized.createGraphics();
+                    g.drawImage(original, 0, 0, 64, 64, null);
+                    g.dispose();
+                    ImageIO.write(resized, "png", new File(serverDir, "server-icon.png"));
+                    serverIconView.setImage(new Image(new File(serverDir, "server-icon.png").toURI().toString()));
+                    MainView.showNotification("Icono", "Icono actualizado.", "success");
+                } catch (Exception ex) { ex.printStackTrace(); }
+            }
+        });
+
+        configGrid.add(new Label("Nombre:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 0); configGrid.add(txtName, 1, 0);
+        configGrid.add(new Label("IP:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 1); configGrid.add(txtIp, 1, 1);
+        configGrid.add(new Label("Puerto:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 2, 1); configGrid.add(txtPort, 3, 1);
+        configGrid.add(new Label("Icono:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 2); configGrid.add(new HBox(10, serverIconView, btnChangeIcon), 1, 2);
 
         // --- AJUSTES DE JUEGO (Dificultad, Gamemode, Max Players) ---
         Label lblGameSettings = new Label("Ajustes del Juego");
@@ -376,7 +435,7 @@ public class ServersView {
         cmbGamemode.setStyle("-fx-base: #333; -fx-text-fill: white;");
 
         TextField txtMaxPlayers = new TextField(props.getProperty("max-players", "20"));
-        txtMaxPlayers.setStyle("-fx-background-color: #333; -fx-text-fill: white;");
+        styleField(txtMaxPlayers);
         txtMaxPlayers.setPrefWidth(80);
 
         CheckBox chkPvp = new CheckBox("PvP");
@@ -404,6 +463,8 @@ public class ServersView {
             
             meta.addProperty("attack_cooldown", chkCooldown.isSelected());
             props.setProperty("motd", txtMotd.getText());
+            props.setProperty("server-ip", txtIp.getText());
+            props.setProperty("server-port", txtPort.getText());
             props.setProperty("difficulty", cmbDifficulty.getValue());
             props.setProperty("gamemode", cmbGamemode.getValue());
             props.setProperty("max-players", txtMaxPlayers.getText());
@@ -413,8 +474,8 @@ public class ServersView {
             MainView.showNotification("Guardado", "Configuración actualizada.", "success");
         });
 
-        generalTab.getChildren().addAll(new Label("Nombre:"), txtName, lblMotd, colorPalette, txtMotd, lblGameSettings, gameGrid, new Separator(), btnSaveGeneral);
-        Tab t1 = new Tab("General", generalTab); t1.setClosable(false);
+        generalTab.getChildren().addAll(configGrid, new Separator(), lblMotd, colorPalette, txtMotd, lblGameSettings, gameGrid, new Separator(), btnSaveGeneral);
+        Tab t1 = new Tab("Ajustes del Servidor", generalTab); t1.setClosable(false);
 
         // --- TAB 2: MODS Y RECURSOS (Unificado) ---
         Tab tModsResources = new Tab("Mods y Recursos", createModsResourcesView(serverDir, serverType));
@@ -437,6 +498,22 @@ public class ServersView {
         playerListsBox.getChildren().addAll(opsBox, banBox);
         playersTab.getChildren().addAll(playerListsBox);
         Tab t4 = new Tab("Jugadores", playersTab); t4.setClosable(false);
+
+        // --- TAB 5: COMPATIBILIDAD (ViaVersion) ---
+        VBox compatTab = new VBox(15);
+        compatTab.setPadding(new Insets(20));
+        
+        Label lblCompat = new Label("Compatibilidad de Versiones");
+        lblCompat.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+        Label lblCompatInfo = new Label("Permite que jugadores con versiones más nuevas o antiguas entren a tu servidor.");
+        lblCompatInfo.setStyle("-fx-text-fill: #aaa;");
+
+        Button btnInstallVia = new Button("Instalar ViaVersion (Nuevas -> Viejas)");
+        btnInstallVia.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 10 20;");
+        btnInstallVia.setOnAction(e -> installViaVersion(serverDir, serverType));
+
+        compatTab.getChildren().addAll(lblCompat, lblCompatInfo, btnInstallVia);
+        Tab tCompat = new Tab("Compatibilidad", compatTab); tCompat.setClosable(false);
         
         // --- TAB 5: BACKUPS ---
         VBox backupTab = new VBox(15);
@@ -453,10 +530,14 @@ public class ServersView {
         backupTab.getChildren().addAll(new Label("Copias de Seguridad") {{ setStyle("-fx-text-fill: white; -fx-font-size: 18px;"); }}, btnCreateBackup, backupList);
         Tab t5 = new Tab("Backups", backupTab); t5.setClosable(false);
 
-        tabs.getTabs().addAll(t1, tModsResources, t4, t5);
+        tabs.getTabs().addAll(t1, tModsResources, tCompat, t4, t5);
         dashboard.getChildren().addAll(header, tabs);
         
         contentPanel.getChildren().setAll(dashboard);
+    }
+
+    private void styleField(TextField tf) {
+        tf.setStyle("-fx-background-color: #222; -fx-text-fill: white; -fx-background-radius: 3; -fx-border-color: #555; -fx-border-width: 1; -fx-padding: 8; -fx-font-family: 'Minecraft', 'Segoe UI', sans-serif;");
     }
 
     private Node createModsResourcesView(File serverDir, String serverType) {
@@ -542,7 +623,7 @@ public class ServersView {
                     MenuItem delete = new MenuItem("Eliminar");
                     delete.setOnAction(e -> {
                         item.delete();
-                        refreshFileList(list, dir);
+                        refreshFileList(list, dir, searchField.getText());
                     });
                     cm.getItems().add(delete);
                     setContextMenu(cm);
@@ -737,7 +818,7 @@ public class ServersView {
                      facets = String.format("[[\"categories:bukkit\"],[\"versions:%s\"]]", version); // Modrinth usa 'bukkit' para plugins
                 }
                 
-                String url = "https://api.modrinth.com/v2/search?query=" + java.net.URLEncoder.encode(query, "UTF-8") + "&facets=" + java.net.URLEncoder.encode(facets, "UTF-8");
+                String url = "https://api.modrinth.com/v2/search?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8) + "&facets=" + URLEncoder.encode(facets, StandardCharsets.UTF_8);
                 String json = fetchJson(url);
                 
                 JsonObject response = gson.fromJson(json, JsonObject.class);
@@ -833,6 +914,31 @@ public class ServersView {
         desc.setStyle("-fx-text-fill: #ccc; -fx-font-size: 14px;");
         desc.setWrapText(true);
 
+        // Lista de versiones compatibles
+        Label lblVers = new Label("Versiones Compatibles:");
+        lblVers.setStyle("-fx-text-fill: #aaa; -fx-font-weight: bold;");
+        
+        ListView<String> versionsList = new ListView<>();
+        versionsList.setPrefHeight(150);
+        versionsList.setStyle("-fx-background-color: #111;");
+        
+        // Cargar versiones en segundo plano
+        executor.submit(() -> {
+            try {
+                String url = "https://api.modrinth.com/v2/project/" + mod.get("slug").getAsString() + "/version";
+                String json = fetchJson(url);
+                JsonArray versions = gson.fromJson(json, JsonArray.class);
+                Platform.runLater(() -> {
+                    for(JsonElement v : versions) {
+                        JsonObject vo = v.getAsJsonObject();
+                        String name = vo.get("name").getAsString();
+                        String gameVers = vo.get("game_versions").toString();
+                        versionsList.getItems().add(name + " - " + gameVers);
+                    }
+                });
+            } catch(Exception e) {}
+        });
+
         Button btnInstall = new Button("Instalar Versión Compatible");
         btnInstall.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 10 20;");
         btnInstall.setOnAction(e -> {
@@ -844,7 +950,7 @@ public class ServersView {
         btnClose.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
         btnClose.setOnAction(e -> modDetailsOverlay.setVisible(false));
 
-        container.getChildren().addAll(title, desc, new Separator(), btnInstall, new Region() {{ VBox.setVgrow(this, Priority.ALWAYS); }}, btnClose);
+        container.getChildren().addAll(title, desc, lblVers, versionsList, new Separator(), btnInstall, new Region() {{ VBox.setVgrow(this, Priority.ALWAYS); }}, btnClose);
         modDetailsOverlay.getChildren().add(container);
     }
 
@@ -858,10 +964,11 @@ public class ServersView {
                 // Obtener versiones del proyecto
                 String loadersParam = "";
                 if (projectType.equals("mod")) {
-                    loadersParam = "&loaders=[\"" + (loader.equals("paper") ? "bukkit" : loader) + "\"]";
+                    loadersParam = "&loaders=" + URLEncoder.encode("[\"" + (loader.equals("paper") ? "bukkit" : loader) + "\"]", StandardCharsets.UTF_8);
                 }
                 
-                String verUrl = "https://api.modrinth.com/v2/project/" + slug + "/version?game_versions=[\"" + version + "\"]" + loadersParam;
+                String gameVersions = URLEncoder.encode("[\"" + version + "\"]", StandardCharsets.UTF_8);
+                String verUrl = "https://api.modrinth.com/v2/project/" + slug + "/version?game_versions=" + gameVersions + loadersParam;
                 String json = fetchJson(verUrl);
                 JsonArray versions = gson.fromJson(json, JsonArray.class);
                 
@@ -1039,7 +1146,10 @@ public class ServersView {
             if (os.contains("win")) {
                 File bat = new File(serverDir, "start.bat");
                 if (bat.exists()) {
-                    Runtime.getRuntime().exec("cmd /c start start.bat", null, serverDir);
+                    // [FIX] Usar ProcessBuilder para asegurar que se abra la ventana de comandos
+                    new ProcessBuilder("cmd", "/c", "start", "Minecraft Server", "start.bat")
+                        .directory(serverDir)
+                        .start();
                 } else {
                     MainView.showNotification("Error", "No se encontró start.bat", "error");
                 }
@@ -1114,7 +1224,7 @@ public class ServersView {
         
         ListView<String> list = new ListView<>();
         for (JsonObject u : updates) {
-            String newName = u.getAsJsonObject("files").get("filename").getAsString();
+            String newName = u.getAsJsonArray("files").get(0).getAsJsonObject().get("filename").getAsString();
             File oldFile = new File(u.get("_localFile").getAsString());
             list.getItems().add(oldFile.getName() + "  ➜  " + newName);
         }
@@ -1128,8 +1238,8 @@ public class ServersView {
                     for (JsonObject u : updates) {
                         try {
                             new File(u.get("_localFile").getAsString()).delete();
-                            String url = u.getAsJsonObject("files").get("url").getAsString();
-                            downloadFile(url, new File(modsDir, u.getAsJsonObject("files").get("filename").getAsString()), null);
+                            String url = u.getAsJsonArray("files").get(0).getAsJsonObject().get("url").getAsString();
+                            downloadFile(url, new File(modsDir, u.getAsJsonArray("files").get(0).getAsJsonObject().get("filename").getAsString()), null);
                             count++;
                         } catch (Exception e) {}
                     }
@@ -1279,6 +1389,12 @@ public class ServersView {
                 createStartScript(serverDir, ram, fileName);
                 createEula(serverDir);
 
+                // Configurar server.properties inicial con IP
+                Properties props = new Properties();
+                props.setProperty("server-ip", "");
+                props.setProperty("server-port", "25565");
+                saveServerProperties(serverDir, props);
+
                 // Guardar metadatos iniciales
                 JsonObject meta = new JsonObject();
                 meta.addProperty("name", serverName);
@@ -1412,5 +1528,32 @@ public class ServersView {
             }
         } catch (Exception e) { }
         return new ImageView();
+    }
+
+    private void confirmDeleteServer(File serverDir) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Eliminar Servidor");
+        alert.setHeaderText("¿Estás seguro de eliminar este servidor?");
+        alert.setContentText("Esta acción no se puede deshacer. Se perderán todos los datos del mundo y configuraciones.");
+        
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                deleteDirectory(serverDir);
+                refreshMyServersList();
+                MainView.showNotification("Eliminado", "Servidor eliminado correctamente.", "success");
+            }
+        });
+    }
+
+    private void deleteDirectory(File file) {
+        if (file.isDirectory()) {
+            File[] entries = file.listFiles();
+            if (entries != null) {
+                for (File entry : entries) {
+                    deleteDirectory(entry);
+                }
+            }
+        }
+        file.delete();
     }
 }

@@ -288,7 +288,6 @@ public class InicioView {
         // Estilo terminal hacker bonito
         devConsoleOutput.setStyle("-fx-control-inner-background: #151515; -fx-text-fill: #00ff00; -fx-font-family: 'Consolas', 'Monospaced'; -fx-highlight-fill: #00ff00; -fx-highlight-text-fill: #000; -fx-background-radius: 10; -fx-border-color: #333; -fx-border-radius: 10;");
         VBox.setVgrow(devConsoleOutput, Priority.ALWAYS);
-        devConsole.getChildren().addAll(consoleTitle, devConsoleOutput);
         
         Button btnHideConsole = new Button("Ocultar Consola");
         btnHideConsole.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 20; -fx-padding: 10 20;");
@@ -300,6 +299,7 @@ public class InicioView {
             ft.play();
         });
 
+        devConsole.getChildren().clear(); // [FIX] Prevenir duplicados si se recarga la vista
         devConsole.getChildren().addAll(consoleClock, consoleTitle, devConsoleOutput, btnHideConsole);
         
         playArea.getChildren().addAll(versionSelector, btnPlay, btnRepair);
@@ -1215,7 +1215,18 @@ public class InicioView {
                     } else if (!"Invitado".equals(name)) {
                         // Cargar cabeza 3D del skin usando el nombre de usuario
                         Image skinHead = new Image("https://minotar.net/cube/" + name + "/64.png", true);
-                        avatar.setFill(new ImagePattern(skinHead));
+                        skinHead.progressProperty().addListener((obs, oldVal, newVal) -> {
+                            if (newVal.doubleValue() >= 1.0 && !skinHead.isError()) {
+                                try {
+                                    avatar.setFill(new ImagePattern(skinHead));
+                                } catch (IllegalArgumentException e) {
+                                    // [FIX] Fallback si la imagen no está lista para ImagePattern
+                                    avatar.setFill(Color.web("#0078d7"));
+                                }
+                            }
+                        });
+                        // [FIX] Añadir un listener de excepción como fallback
+                        skinHead.exceptionProperty().addListener((obs, oldEx, newEx) -> avatar.setFill(Color.web("#0078d7")));
                     } else {
                         avatar.setFill(Color.web("#0078d7"));
                     }

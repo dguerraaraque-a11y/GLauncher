@@ -79,12 +79,13 @@ public class MainView {
         contentPane.setCenter(inicio.getView());
 
         // Barra inferior flotante
-        HBox navBar = new HBox(15);
+        HBox navBar = new HBox(5); // [FIX] Reducir espaciado para evitar que ocupe todo el ancho
         navBar.setAlignment(Pos.CENTER); // [FIX] Centrar botones verticalmente en la textura
         
         // Estilo "Pachonchito" (Redondeado y con cuerpo)
         navBar.setMaxWidth(Region.USE_PREF_SIZE);
-        navBar.setStyle("-fx-background-color: rgba(20, 20, 20, 0.95); -fx-background-radius: 40; -fx-padding: 15 30; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 40; -fx-border-width: 1;");
+        navBar.setMaxHeight(Region.USE_PREF_SIZE); // [FIX] Evitar expansión vertical
+        navBar.setStyle("-fx-background-color: rgba(20, 20, 20, 0.95); -fx-background-radius: 30; -fx-padding: 12 25; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 30; -fx-border-width: 1;");
 
         btnInicio = new Button("Inicio");
         btnNews = new Button("Noticias");
@@ -139,6 +140,16 @@ public class MainView {
         });
 
         navBar.getChildren().addAll(btnInicio, btnNews, btnShop, btnVersions, btnServers, btnCuenta, btnChat, btnMusic, btnDownloads, btnSettings);
+        
+        // [FIX] Estilizar botones para que sean más compactos (Estilo transparente)
+        navBar.getChildren().forEach(node -> {
+            if (node instanceof Button) {
+                Button btn = (Button) node;
+                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-padding: 4 8;");
+                btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: rgba(255,255,255,0.15); -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-background-radius: 20; -fx-padding: 4 8;"));
+                btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-padding: 4 8;"));
+            }
+        });
 
         // Animación de elevación al pasar el mouse (Hover)
         TranslateTransition hoverAnim = new TranslateTransition(Duration.millis(200), navBar);
@@ -192,7 +203,7 @@ public class MainView {
         
         // Posicionar la barra flotante
         StackPane.setAlignment(navBar, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(navBar, new Insets(0, 0, 30, 0)); // Margen inferior de 30px
+        StackPane.setMargin(navBar, new Insets(0, 0, 15, 0)); // Mover la barra hacia arriba para que "flote" más
 
         // Aplicar configuración inicial
         applyThemeSettings();

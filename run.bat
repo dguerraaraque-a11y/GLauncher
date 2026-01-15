@@ -36,7 +36,11 @@ if exist "%BASE_DIR%lib\NewPipeExtractor-0.24.8.jar" (
 REM Verificar y descargar librerias faltantes si es necesario
 if not exist "%BASE_DIR%lib\NewPipeExtractor-0.24.8.jar" (
     echo [INFO] Librerias no encontradas. Ejecutando Ver.bat para descargarlas...
-    call "%BASE_DIR%Ver.bat"
+    if exist "%BASE_DIR%Ver.bat" (
+        pushd "%BASE_DIR%"
+        call Ver.bat
+        popd
+    )
 )
 
 REM Construir Classpath incluyendo todos los JARs en 'lib' y sus subcarpetas

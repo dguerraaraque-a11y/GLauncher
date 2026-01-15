@@ -1,0 +1,156 @@
+.root {
+    background-color: linear-gradient(to bottom right, #0f0f0f, #1a1a1a);
+    -fx-background-color: linear-gradient(to bottom right, #0f0f0f, #1a1a1a);
+    font-family: "Segoe UI";
+    -fx-font-family: "Segoe UI";
+}
+
+.floating-navbar {
+    background-color: rgba(30, 30, 30, 0.95);
+    -fx-background-color: rgba(30, 30, 30, 0.95);
+    -fx-background-radius: 50;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.6), 20, 0, 0, 5);
+    padding: 10px 25px;
+    -fx-padding: 10 25;
+    -fx-alignment: center;
+}
+
+.button {
+    background-color: transparent;
+    -fx-background-color: transparent;
+    -fx-text-fill: #cccccc;
+    font-size: 14px;
+    -fx-font-size: 14px;
+    font-weight: bold;
+    -fx-font-weight: bold;
+    cursor: pointer;
+    -fx-cursor: hand;
+    -fx-background-radius: 8;
+}
+
+.button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-text-fill: white;
+    -fx-background-radius: 20;
+}
+
+/* Personalización del ScrollBar */
+.list-view .scroll-bar:vertical,
+.scroll-bar:vertical {
+    background-color: transparent;
+    -fx-background-color: transparent;
+}
+
+.list-view .scroll-bar:vertical .thumb,
+.scroll-bar:vertical .thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+    -fx-background-radius: 5em;
+}
+
+.custom-list {
+    background-color: transparent;
+    -fx-background-color: transparent;
+    -fx-control-inner-background: transparent;
+    -fx-background-insets: 0;
+}
+
+.chat-bubble {
+    background-color: rgba(255, 255, 255, 0.15);
+    -fx-background-color: rgba(255, 255, 255, 0.15);
+    -fx-background-radius: 15;
+    padding: 8px 12px;
+    -fx-padding: 8 12;
+    -fx-text-fill: white;
+}
+
+.text-field {
+    background-color: rgba(255, 255, 255, 0.1);
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-text-fill: white;
+    -fx-background-radius: 5;
+}
+
+.text-field:focused {
+    background-color: rgba(255, 255, 255, 0.2);
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Estilos modernos para listas (Descargas) */
+.modern-list {
+    background-color: transparent;
+    -fx-background-color: transparent;
+    -fx-control-inner-background: transparent;
+}
+
+.modern-list-cell {
+    background-color: rgba(255, 255, 255, 0.05);
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-background-radius: 10;
+    padding: 10px;
+    -fx-padding: 10;
+    border-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.modern-list-cell:selected {
+    background-color: rgba(0, 120, 215, 0.4);
+    -fx-background-color: rgba(0, 120, 215, 0.4);
+}
+
+.modern-list-cell:empty {
+    background-color: transparent;
+    -fx-background-color: transparent;
+}
+
+.search-bar {
+    background-color: rgba(0, 0, 0, 0.3);
+    -fx-background-color: rgba(0, 0, 0, 0.3);
+    -fx-text-fill: white;
+    -fx-background-radius: 20;
+    padding: 8px 15px;
+    -fx-padding: 8 15;
+}
+
+/* Estilos modernos para ComboBox */
+.modern-combo {
+    background-color: rgba(0, 0, 0, 0.3);
+    -fx-background-color: rgba(0, 0, 0, 0.3);
+    -fx-text-fill: white;
+    -fx-background-radius: 5;
+    border-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.modern-combo .cell {
+    -fx-text-fill: white;
+}
+
+.modern-combo .list-cell {
+    background-color: #1a1a1a;
+    -fx-background-color: #1a1a1a;
+    -fx-text-fill: white;
+}
+
+.modern-combo .list-cell:hover {
+    background-color: #333;
+    -fx-background-color: #333;
+}
+
+/* Estilos para CheckBox */
+.check-box {
+    -fx-text-fill: white;
+}
+
+.check-box .box {
+    background-color: rgba(255,255,255,0.1);
+    -fx-background-color: rgba(255,255,255,0.1);
+    -fx-border-color: rgba(255,255,255,0.3);
+    -fx-border-radius: 3px;
+}
+
+.check-box:selected .mark {
+    background-color: white;
+    -fx-background-color: white;
+}

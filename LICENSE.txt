@@ -1,0 +1,17 @@
+ACUERDO DE LICENCIA DE USUARIO FINAL (EULA) - GLAUNCHER
+
+1. ACEPTACION
+Al instalar o utilizar este software, usted acepta los terminos de este acuerdo.
+
+2. USO
+GLauncher es un software gratuito desarrollado por la comunidad. 
+No esta afiliado, asociado ni respaldado por Mojang Studios o Microsoft.
+No se permite su venta ni instalacion pagada.
+
+3. RESPONSABILIDAD
+El software se proporciona "tal cual", sin garantia de ningun tipo. 
+Los autores no se hacen responsables de danos en su equipo o perdida de datos
+aun que el sotware no esta afiliado y puede dar error de desconocido.
+
+4. DISTRIBUCION
+Usted puede distribuir este software libremente.

@@ -77,7 +77,13 @@ public class ShopView {
                     });
                 } else {
                      Platform.runLater(() -> {
-                        Label errorLabel = new Label("No se pudieron cargar los artículos. Código: " + conn.getResponseCode());
+                        int responseCode;
+try {
+    responseCode = conn.getResponseCode();
+} catch (java.io.IOException e) {
+    responseCode = -1;
+}
+Label errorLabel = new Label("No se pudieron cargar los artículos. Código: " + responseCode);
                         errorLabel.setStyle("-fx-text-fill: #ff8080;");
                         itemsGrid.getChildren().add(errorLabel);
                     });

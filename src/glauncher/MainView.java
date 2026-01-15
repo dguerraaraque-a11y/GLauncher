@@ -46,7 +46,7 @@ public class MainView {
     private static VBox notificationContainer; // Contenedor estático para acceso global
     
     // Botones de navegación (Promovidos a campos para traducción)
-    private Button btnInicio, btnNews, btnShop, btnVersions, btnCuenta, btnChat, btnMusic, btnDownloads, btnSettings;
+    private Button btnInicio, btnNews, btnShop, btnVersions, btnCuenta, btnChat, btnMusic, btnDownloads, btnSettings, btnServers;
 
     public MainView() {
         instance = this;
@@ -74,37 +74,17 @@ public class MainView {
         ShopView shop = new ShopView();
         SettingsView settings = new SettingsView();
         VersionesView versiones = new VersionesView();
+        ServersView servers = new ServersView();
 
         contentPane.setCenter(inicio.getView());
 
         // Barra inferior flotante
         HBox navBar = new HBox(15);
         navBar.setAlignment(Pos.CENTER); // [FIX] Centrar botones verticalmente en la textura
-        navBar.setMaxHeight(71); // [FIX] Altura exacta de tu textura (71px)
-
-        // Aplicar textura a la barra flotante
-        File navBarTexture = new File("assets/texture/bar_flotanting.png");
-        if (navBarTexture.exists()) {
-            // Cargar imagen sin suavizado (smooth=false) para que el pixel art se vea nítido
-            // [FIX] Carga síncrona (false al final) para leer el ancho real y evitar auto-escalado
-            Image img = new Image(navBarTexture.toURI().toString(), 0, 0, false, false, false);
-            
-            // [FIX] Fijar el ancho de la barra al de la imagen para que no se deforme ni se mueva el centro
-            navBar.setPrefWidth(img.getWidth());
-            navBar.setMaxWidth(Region.USE_PREF_SIZE);
-            
-            BackgroundImage bgImage = new BackgroundImage(
-                img, BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT, 
-                BackgroundPosition.CENTER, new BackgroundSize(1.0, 1.0, true, true, false, false)
-            );
-            
-            navBar.setBackground(new Background(bgImage));
-            // [FIX] Usar setPadding en lugar de setStyle para evitar que CSS sobrescriba la textura
-            navBar.setPadding(new Insets(0, 35, 0, 35)); // Padding vertical 0 para usar toda la altura de 71px
-        } else {
-            navBar.setMaxWidth(Region.USE_PREF_SIZE);
-            navBar.setStyle("-fx-background-color: rgba(20, 20, 20, 0.9); -fx-background-radius: 25; -fx-padding: 10 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 5);");
-        }
+        
+        // Estilo "Pachonchito" (Redondeado y con cuerpo)
+        navBar.setMaxWidth(Region.USE_PREF_SIZE);
+        navBar.setStyle("-fx-background-color: rgba(20, 20, 20, 0.95); -fx-background-radius: 40; -fx-padding: 15 30; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 40; -fx-border-width: 1;");
 
         btnInicio = new Button("Inicio");
         btnNews = new Button("Noticias");
@@ -112,6 +92,7 @@ public class MainView {
         btnVersions = new Button("Versiones");
         btnCuenta = new Button("Mi Cuenta");
         btnChat = new Button("GChat");
+        btnServers = new Button("Servidores");
         btnMusic = new Button("GMusic");
         btnDownloads = new Button("Mods");
         btnSettings = new Button("Ajustes");
@@ -140,6 +121,10 @@ public class MainView {
             switchView(gchat.getView()); 
             DiscordIntegration.update("En GChat", "Chateando con la comunidad");
         });
+        btnServers.setOnAction(e -> { 
+            switchView(servers.getView()); 
+            DiscordIntegration.update("En Servidores", "Gestionando Servidores");
+        });
         btnMusic.setOnAction(e -> { 
             switchView(music.getView()); 
             DiscordIntegration.update("Escuchando Música", "GMusic Player");
@@ -153,7 +138,7 @@ public class MainView {
             DiscordIntegration.update("Configurando", "Ajustes del Launcher");
         });
 
-        navBar.getChildren().addAll(btnInicio, btnNews, btnShop, btnVersions, btnCuenta, btnChat, btnMusic, btnDownloads, btnSettings);
+        navBar.getChildren().addAll(btnInicio, btnNews, btnShop, btnVersions, btnServers, btnCuenta, btnChat, btnMusic, btnDownloads, btnSettings);
 
         // Animación de elevación al pasar el mouse (Hover)
         TranslateTransition hoverAnim = new TranslateTransition(Duration.millis(200), navBar);
@@ -429,6 +414,7 @@ public class MainView {
             btnNews.setText("News");
             btnShop.setText("Shop");
             btnVersions.setText("Versions");
+            btnServers.setText("Servers");
             btnCuenta.setText("My Account");
             btnChat.setText("GChat");
             btnMusic.setText("GMusic");
@@ -439,6 +425,7 @@ public class MainView {
             btnNews.setText("Notícias");
             btnShop.setText("Loja");
             btnVersions.setText("Versões");
+            btnServers.setText("Servidores");
             btnCuenta.setText("Minha Conta");
             btnChat.setText("GChat");
             btnMusic.setText("GMusic");
@@ -449,6 +436,7 @@ public class MainView {
             btnNews.setText("Noticias");
             btnShop.setText("Tienda");
             btnVersions.setText("Versiones");
+            btnServers.setText("Servidores");
             btnCuenta.setText("Mi Cuenta");
             btnChat.setText("GChat");
             btnMusic.setText("GMusic");

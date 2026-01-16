@@ -18,6 +18,7 @@ import java.io.FileWriter;
 import java.lang.management.ManagementFactory;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.animation.ScaleTransition;
 
 public class SetupAssistantView {
 
@@ -207,6 +208,7 @@ public class SetupAssistantView {
                 txtJavaPath.setPromptText("Ruta de java.exe");
                 txtJavaPath.setEditable(false);
                 txtJavaPath.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 5; -fx-border-color: #555; -fx-border-radius: 5;");
+                txtJavaPath.setTooltip(new Tooltip("Ruta actual del ejecutable de Java"));
                 
                 Button btnBrowse = createStyledButton("📂", false);
                 btnBrowse.setOnAction(e -> {
@@ -218,6 +220,7 @@ public class SetupAssistantView {
                         txtJavaPath.setText(javaPath);
                     }
                 });
+                btnBrowse.setTooltip(new Tooltip("Buscar manualmente el archivo java.exe en tu PC"));
 
                 HBox javaBox = new HBox(10, txtJavaPath, btnBrowse);
                 javaBox.setAlignment(Pos.CENTER);
@@ -225,9 +228,31 @@ public class SetupAssistantView {
 
                 Button btnAuto = createStyledButton("✨ Auto-Detect", false);
                 btnAuto.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-cursor: hand; -fx-padding: 8 15; -fx-background-radius: 5; -fx-font-weight: bold;");
+                btnAuto.setTooltip(new Tooltip("Intentar encontrar Java automáticamente en las carpetas por defecto"));
                 btnAuto.setOnAction(e -> detectJava());
 
-                centerContent.getChildren().addAll(javaBox, btnAuto);
+                // Sección de Descarga de Java
+                Label lblDownload = new Label("¿No tienes Java? Descarga el instalador:");
+                lblDownload.setStyle("-fx-text-fill: #aaa; -fx-font-size: 12px; -fx-padding: 10 0 5 0;");
+
+                HBox downloadButtons = new HBox(15);
+                downloadButtons.setAlignment(Pos.CENTER);
+
+                Button btnJava8 = createStyledButton("⬇ Java 8 (Legacy)", false);
+                btnJava8.setTooltip(new Tooltip("Necesario para versiones antiguas (1.8 - 1.16.5) y Forge antiguo.\nHaz clic para descargar el instalador."));
+                btnJava8.setOnAction(e -> openUrl("https://api.adoptium.net/v3/installer/latest/8/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk"));
+
+                Button btnJava17 = createStyledButton("⬇ Java 17 (Modern)", false);
+                btnJava17.setTooltip(new Tooltip("Necesario para versiones modernas (1.17+).\nHaz clic para descargar el instalador."));
+                btnJava17.setOnAction(e -> openUrl("https://api.adoptium.net/v3/installer/latest/17/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk"));
+
+                Button btnJava21 = createStyledButton("⬇ Java 21 (Latest)", false);
+                btnJava21.setTooltip(new Tooltip("Necesario para versiones 1.20.5+.\nHaz clic para descargar el instalador."));
+                btnJava21.setOnAction(e -> openUrl("https://api.adoptium.net/v3/installer/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk"));
+
+                downloadButtons.getChildren().addAll(btnJava8, btnJava17, btnJava21);
+
+                centerContent.getChildren().addAll(javaBox, btnAuto, new Separator(), lblDownload, downloadButtons);
                 break;
 
             case 4: // RAM
@@ -355,14 +380,30 @@ public class SetupAssistantView {
     private Button createStyledButton(String text, boolean primary) {
         Button btn = new Button(text);
         String baseStyle = "-fx-cursor: hand; -fx-padding: 10 25; -fx-background-radius: 5; -fx-font-size: 14px; -fx-font-weight: bold;";
+        
+        // Animación de escala
+        ScaleTransition st = new ScaleTransition(Duration.millis(150), btn);
+        
         if (primary) {
             btn.setStyle(baseStyle + " -fx-background-color: #0078d7; -fx-text-fill: white;");
-            btn.setOnMouseEntered(e -> btn.setStyle(baseStyle + " -fx-background-color: #005a9e; -fx-text-fill: white;"));
-            btn.setOnMouseExited(e -> btn.setStyle(baseStyle + " -fx-background-color: #0078d7; -fx-text-fill: white;"));
+            btn.setOnMouseEntered(e -> {
+                btn.setStyle(baseStyle + " -fx-background-color: #005a9e; -fx-text-fill: white;");
+                st.setToX(1.05); st.setToY(1.05); st.playFromStart();
+            });
+            btn.setOnMouseExited(e -> {
+                btn.setStyle(baseStyle + " -fx-background-color: #0078d7; -fx-text-fill: white;");
+                st.setToX(1.0); st.setToY(1.0); st.playFromStart();
+            });
         } else {
             btn.setStyle(baseStyle + " -fx-background-color: #444; -fx-text-fill: white;");
-            btn.setOnMouseEntered(e -> btn.setStyle(baseStyle + " -fx-background-color: #555; -fx-text-fill: white;"));
-            btn.setOnMouseExited(e -> btn.setStyle(baseStyle + " -fx-background-color: #444; -fx-text-fill: white;"));
+            btn.setOnMouseEntered(e -> {
+                btn.setStyle(baseStyle + " -fx-background-color: #555; -fx-text-fill: white;");
+                st.setToX(1.05); st.setToY(1.05); st.playFromStart();
+            });
+            btn.setOnMouseExited(e -> {
+                btn.setStyle(baseStyle + " -fx-background-color: #444; -fx-text-fill: white;");
+                st.setToX(1.0); st.setToY(1.0); st.playFromStart();
+            });
         }
         return btn;
     }
@@ -403,6 +444,14 @@ public class SetupAssistantView {
                     }
                 }
             }
+        }
+    }
+
+    private void openUrl(String url) {
+        try {
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

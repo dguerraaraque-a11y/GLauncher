@@ -8,18 +8,25 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
+import javafx.animation.TranslateTransition;
+import javafx.animation.Interpolator;
 import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.web.WebView;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
+import javafx.scene.Scene;
 import javafx.stage.FileChooser;
+import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 import org.jsoup.Jsoup;
 
@@ -31,7 +38,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -48,6 +54,8 @@ public class MusicView {
     private VBox internalView;
     private VBox youtubeView;
     private VBox settingsView;
+    
+    private VBox playerWrapper;
 
     // Componentes Interna
     private ListView<File> localFilesList;
@@ -58,28 +66,53 @@ public class MusicView {
     private TextField searchField;
     private VBox resultsContainer;
     private Label lblQueueStatus;
+    private ListView<String> queueListView;
+    private Label lblOverlayTitle; // [NUEVO] Título en overlay
     private WebView webPlayer;
     private final String YT_API_KEY = "AIzaSyAlGmxmZbvkEKjVGLD487giPvl10wO-C9k";
     private final Gson gson = new Gson();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final List<String> playlist = new ArrayList<>();
-    private Timeline currentTimer;
+    private Timeline monitorTimer; // [FIX] Reemplaza al timer fijo por uno de monitoreo
+    private TranslateTransition marqueeTransition; // [NUEVO] Animación de marquesina
+    private List<JsonObject> currentSearchItems = new ArrayList<>(); // [NUEVO] Cache de resultados
+    private Stage playlistWindow; // [NUEVO] Ventana de lista de reproducción
 
     // Componentes Ajustes (Hotkeys)
     private KeyCode keyPlayPause = KeyCode.P;
     private KeyCode keyStop = KeyCode.S;
+    private KeyCode keyMiniPlayer = KeyCode.M; // [NUEVO] Tecla para Mini Player
     private Button btnKeyPlayPause;
     private Button btnKeyStop;
+    private Button btnKeyMiniPlayer;
+    private CheckBox chkLowSpecMode; // [NUEVO] Checkbox optimización
     private boolean waitingForKey = false;
     private Button activeKeyButton = null;
+    
+    // Mini Player
+    private Stage miniPlayerStage;
+    private double xOffset = 0;
+    private double yOffset = 0;
 
     // [OPTIMIZACION] Intentar forzar aceleración por hardware para mejorar rendimiento del WebView
     static {
-        System.setProperty("sun.java2d.opengl", "true");
-        System.setProperty("prism.order", "sw"); // Fallback a software si hardware falla, pero prioriza rendimiento
+        // [FIX] Optimización para PCs de bajos recursos (Canaima/Gobierno)
+        // Priorizar GPU (d3d/es2) sobre Software (sw) para decodificar video sin lag
+        System.setProperty("prism.order", "d3d,es2,sw");
+        System.setProperty("prism.forceGPU", "true"); // Intentar usar GPU aunque sea antigua
+        System.setProperty("prism.vsync", "false");   // Desactivar VSync para mejorar respuesta
     }
 
+    // [FIX] Instancia estática para mantener el estado (Singleton)
+    // Esto evita que se reinicie la vista o se duplique el audio al cambiar de pestaña
+    private static MusicView instance;
+
     public Parent getView() {
+        if (instance != null) {
+            return instance.root;
+        }
+        instance = this;
+
         root = new BorderPane();
         root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-background-radius: 15;");
         root.setPadding(new Insets(10));
@@ -94,9 +127,9 @@ public class MusicView {
         title.setStyle("-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;");
 
         ToggleGroup group = new ToggleGroup();
-        ToggleButton btnInternal = createNavButton("🎵 Interna", group);
-        ToggleButton btnYoutube = createNavButton("📺 Buscador YT", group);
-        ToggleButton btnSettings = createNavButton("⚙ Ajustes", group);
+        ToggleButton btnInternal = createNavButton("Interna", "assets/icons/icons-gui/nota-m.png", group);
+        ToggleButton btnYoutube = createNavButton("Buscador YT", "assets/icons/icons-gui/buscador-y.png", group);
+        ToggleButton btnSettings = createNavButton("Ajustes", "assets/icons/icons-gui/tuerca.png", group);
 
         sidebar.getChildren().addAll(title, new Separator(), btnInternal, btnYoutube, btnSettings);
 
@@ -116,7 +149,12 @@ public class MusicView {
 
         // Vista por defecto
         btnInternal.setSelected(true);
-        showView(internalView);
+        // [FIX] Inicializar visibilidad y añadir todas las vistas para persistencia (Background Playback)
+        if (internalView != null) internalView.setVisible(true);
+        if (youtubeView != null) youtubeView.setVisible(false);
+        if (settingsView != null) settingsView.setVisible(false);
+        
+        contentArea.getChildren().addAll(internalView, youtubeView, settingsView);
 
         root.setLeft(sidebar);
         root.setCenter(contentArea);
@@ -127,9 +165,11 @@ public class MusicView {
         return root;
     }
 
-    private void showView(VBox view) {
-        contentArea.getChildren().clear();
-        contentArea.getChildren().add(view);
+    private void showView(Node view) {
+        // [OPTIMIZACION] Usar setVisible en lugar de clear/add para mantener el WebView activo en segundo plano
+        if (internalView != null) internalView.setVisible(view == internalView);
+        if (youtubeView != null) youtubeView.setVisible(view == youtubeView);
+        if (settingsView != null) settingsView.setVisible(view == settingsView);
     }
 
     // --- 1. VISTA INTERNA (Local) ---
@@ -275,25 +315,207 @@ public class MusicView {
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
         // Columna Derecha: Reproductor Fijo
-        VBox playerWrapper = new VBox(15);
+        playerWrapper = new VBox(15);
         playerWrapper.setPrefWidth(500);
         playerWrapper.setMinWidth(500);
         playerWrapper.setAlignment(Pos.TOP_CENTER);
-        playerWrapper.setStyle("-fx-background-color: rgba(0,0,0,0.3); -fx-background-radius: 15; -fx-padding: 15;");
+        playerWrapper.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15;"); // [FIX] Fondo más oscuro para resaltar
 
         webPlayer = new WebView();
-        webPlayer.setPrefSize(480, 270);
-        webPlayer.setMaxSize(480, 270);
-        // [FIX] User-Agent actualizado a Chrome 124 para evitar Error 153
-        webPlayer.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+        // [FIX] Tamaño dinámico/grande para el panel "mini web" (Panel completo)
+        webPlayer.setPrefSize(480, 360); 
+        webPlayer.setMinSize(300, 250);
+        // [FIX] User-Agent actualizado a Chrome 133 para mejor compatibilidad y calidad
+        webPlayer.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
+        webPlayer.setContextMenuEnabled(false); // Desactivar menú contextual para ahorrar recursos
         
         Label lblNowPlaying = new Label("Reproductor");
         lblNowPlaying.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
         
+        // [FIX] Eliminadas pestañas de categoría (Colas/Detalles) a petición del usuario
         playerWrapper.getChildren().addAll(lblNowPlaying, webPlayer);
 
         mainContent.getChildren().addAll(resultsWrapper, playerWrapper);
-        youtubeView.getChildren().addAll(headerBox, mainContent);
+        
+        // [NUEVO] Mini Overlay (Arriba Lateral) - Controles flotantes
+        HBox overlayBox = new HBox(10);
+        overlayBox.setAlignment(Pos.CENTER_RIGHT);
+        overlayBox.setPadding(new Insets(5, 15, 5, 15));
+        overlayBox.setStyle("-fx-background-color: rgba(0, 120, 215, 0.2); -fx-background-radius: 20; -fx-border-color: rgba(0, 120, 215, 0.5); -fx-border-radius: 20;");
+        
+        // [NUEVO] Contenedor con recorte para efecto marquesina
+        Pane titleContainer = new Pane();
+        titleContainer.setPrefSize(200, 20);
+        titleContainer.setMaxSize(200, 20);
+        Rectangle clip = new Rectangle(200, 20);
+        titleContainer.setClip(clip);
+
+        lblOverlayTitle = new Label("Sin reproducción");
+        lblOverlayTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;");
+        // lblOverlayTitle.setMaxWidth(200); // Eliminado para permitir que el texto crezca
+        
+        titleContainer.getChildren().add(lblOverlayTitle);
+
+        // Lógica de marquesina automática
+        lblOverlayTitle.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (marqueeTransition != null) {
+                marqueeTransition.stop();
+                lblOverlayTitle.setTranslateX(0);
+            }
+            Platform.runLater(() -> {
+                double textWidth = lblOverlayTitle.getLayoutBounds().getWidth();
+                if (textWidth > 200) {
+                    marqueeTransition = new TranslateTransition(Duration.seconds((textWidth + 200) / 50), lblOverlayTitle);
+                    marqueeTransition.setFromX(200);
+                    marqueeTransition.setToX(-textWidth);
+                    marqueeTransition.setCycleCount(Timeline.INDEFINITE);
+                    marqueeTransition.setInterpolator(Interpolator.LINEAR);
+                    marqueeTransition.play();
+                }
+            });
+        });
+        
+        // [NUEVO] Botón Atrasar 10s (Solución al problema de "se pega")
+        Button btnOverlayRewind = new Button("⏪");
+        btnOverlayRewind.setTooltip(new Tooltip("Atrasar 10 segundos"));
+        btnOverlayRewind.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
+        btnOverlayRewind.setOnAction(e -> {
+            webPlayer.getEngine().executeScript("var v = document.querySelector('video'); if(v){ v.currentTime -= 10; }");
+        });
+
+        Button btnOverlayPlay = new Button("⏯");
+        btnOverlayPlay.setTooltip(new Tooltip("Pausar/Reanudar (Espacio)"));
+        btnOverlayPlay.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
+        btnOverlayPlay.setOnAction(e -> {
+            // Inyectar JS para pausar/reproducir el video HTML5
+            webPlayer.getEngine().executeScript("var vid = document.querySelector('video'); if(vid){ if(vid.paused){vid.play();}else{vid.pause();} }");
+        });
+        
+        Button btnOverlayNext = new Button("⏭");
+        btnOverlayNext.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
+        btnOverlayNext.setOnAction(e -> playNextInPlaylist());
+
+        overlayBox.getChildren().addAll(titleContainer, btnOverlayRewind, btnOverlayPlay, btnOverlayNext);
+        
+        // [NUEVO] Botón de Modo Audio (Nota Musical)
+        Button btnPlaylist = new Button("🎵");
+        btnPlaylist.setTooltip(new Tooltip("Modo Audio (Mini Player)"));
+        // Estilo Gamer: Neon, oscuro, sin bordes default
+        btnPlaylist.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-text-fill: #00ff00; -fx-background-radius: 50; -fx-cursor: hand; -fx-font-size: 14px; -fx-border-color: #00ff00; -fx-border-radius: 50; -fx-border-width: 1; -fx-min-width: 30px; -fx-min-height: 30px;");
+        // [FIX] Botón siempre visible
+        btnPlaylist.setVisible(true);
+        btnPlaylist.setManaged(true);
+        
+        btnPlaylist.setOnAction(e -> toggleMiniPlayer());
+
+        // Contenedor para el overlay y el botón
+        HBox overlayContainer = new HBox(5);
+        overlayContainer.setAlignment(Pos.CENTER_RIGHT);
+        overlayContainer.getChildren().addAll(btnPlaylist, overlayBox);
+
+        // Integrar overlay en la barra superior
+        HBox topBar = new HBox(10, headerBox, new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, overlayContainer);
+        HBox.setHgrow(headerBox, Priority.ALWAYS);
+        
+        youtubeView.getChildren().addAll(topBar, mainContent);
+    }
+
+    private void showPlaylistPopup(Node anchor) {
+        if (playlistWindow != null && playlistWindow.isShowing()) {
+            playlistWindow.close();
+            playlistWindow = null;
+            return;
+        }
+
+        playlistWindow = new Stage();
+        playlistWindow.initStyle(StageStyle.TRANSPARENT);
+        playlistWindow.setAlwaysOnTop(true);
+        
+        VBox listContent = new VBox(5);
+        listContent.setPadding(new Insets(10));
+        listContent.setStyle("-fx-background-color: rgba(10, 10, 10, 0.95); -fx-border-color: #00ff00; -fx-border-width: 1; -fx-background-radius: 10; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,255,0,0.3), 10, 0, 0, 0);");
+        listContent.setPrefWidth(300);
+        listContent.setMaxHeight(400);
+        
+        HBox header = new HBox();
+        header.setAlignment(Pos.CENTER_LEFT);
+        
+        Label lblTitle = new Label("Resultados de Búsqueda");
+        lblTitle.setStyle("-fx-text-fill: #00ff00; -fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Button btnClose = new Button("✕");
+        btnClose.setStyle("-fx-background-color: transparent; -fx-text-fill: #00ff00; -fx-cursor: hand; -fx-font-weight: bold; -fx-font-size: 14px;");
+        btnClose.setOnAction(e -> playlistWindow.close());
+        
+        header.getChildren().addAll(lblTitle, spacer, btnClose);
+
+        VBox itemsBox = new VBox(5);
+        ScrollPane scroll = new ScrollPane(itemsBox);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scroll.getStylesheets().add("data:text/css,.scroll-pane .viewport { -fx-background-color: transparent; } .scroll-bar:vertical .track { -fx-background-color: #222; } .scroll-bar:vertical .thumb { -fx-background-color: #00ff00; -fx-background-radius: 5; }");
+        
+        if (currentSearchItems.isEmpty()) {
+            Label empty = new Label("Sin resultados recientes.");
+            empty.setStyle("-fx-text-fill: #aaa; -fx-padding: 10;");
+            itemsBox.getChildren().add(empty);
+        } else {
+            for (JsonObject item : currentSearchItems) {
+                JsonObject snippet = item.getAsJsonObject("snippet");
+                String title = Jsoup.parse(snippet.get("title").getAsString()).text();
+                String videoId = item.getAsJsonObject("id").get("videoId").getAsString();
+                
+                HBox row = new HBox(10);
+                row.setAlignment(Pos.CENTER_LEFT);
+                row.setPadding(new Insets(5));
+                row.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-border-radius: 5;");
+                
+                Label lblSong = new Label(title);
+                lblSong.setStyle("-fx-text-fill: white; -fx-font-size: 12px;");
+                lblSong.setWrapText(false);
+                lblSong.setTextOverrun(OverrunStyle.ELLIPSIS);
+                
+                row.getChildren().add(lblSong);
+                
+                row.setOnMouseEntered(e -> row.setStyle("-fx-background-color: rgba(0, 255, 0, 0.2); -fx-background-radius: 5;"));
+                row.setOnMouseExited(e -> row.setStyle("-fx-background-color: transparent;"));
+                row.setOnMouseClicked(e -> {
+                    playYoutubeVideo(videoId, title);
+                    // No cerrar la ventana al seleccionar, para permitir añadir varios a la cola si se desea
+                });
+                
+                itemsBox.getChildren().add(row);
+            }
+        }
+        
+        listContent.getChildren().addAll(header, scroll);
+        
+        // Hacer la ventana arrastrable
+        final double[] xOffset = {0};
+        final double[] yOffset = {0};
+        listContent.setOnMousePressed(event -> {
+            xOffset[0] = event.getSceneX();
+            yOffset[0] = event.getSceneY();
+        });
+        listContent.setOnMouseDragged(event -> {
+            playlistWindow.setX(event.getScreenX() - xOffset[0]);
+            playlistWindow.setY(event.getScreenY() - yOffset[0]);
+        });
+
+        Scene scene = new Scene(listContent);
+        scene.setFill(null);
+        playlistWindow.setScene(scene);
+        
+        javafx.geometry.Point2D point = anchor.localToScreen(0, 0);
+        if (point != null) {
+            playlistWindow.setX(point.getX() - 310);
+            playlistWindow.setY(point.getY());
+        }
+        
+        playlistWindow.show();
     }
 
     private void searchYoutube() {
@@ -310,6 +532,7 @@ public class MusicView {
 
         resultsContainer.getChildren().clear();
         resultsContainer.getChildren().add(new Label("Buscando..."));
+        currentSearchItems.clear(); // [FIX] Limpiar cache anterior
 
         executor.submit(() -> {
             try {
@@ -329,6 +552,7 @@ public class MusicView {
                     Platform.runLater(() -> {
                         resultsContainer.getChildren().clear();
                         for (JsonElement el : items) {
+                            currentSearchItems.add(el.getAsJsonObject()); // [FIX] Guardar en cache
                             // Usamos Jsoup para limpiar el titulo de caracteres HTML (como &quot;)
                             resultsContainer.getChildren().add(createYoutubeResult(el.getAsJsonObject()));
                         }
@@ -408,14 +632,13 @@ public class MusicView {
         info.getChildren().addAll(lblTitle, lblChannel);
         HBox.setHgrow(info, Priority.ALWAYS);
 
-        Button btnWebMode = new Button("🌐");
-        btnWebMode.setTooltip(new Tooltip("Ver página completa (Mini-Web)"));
-        btnWebMode.setStyle("-fx-background-color: transparent; -fx-text-fill: #aaa; -fx-cursor: hand; -fx-font-size: 16px;");
-        btnWebMode.setOnAction(e -> {
-            e.consume(); // Evitar que se active el evento de la fila (reproducir embed)
-            stopLocalMusic();
-            // Cargar la página completa de YouTube en el WebView interno
-            webPlayer.getEngine().load("https://www.youtube.com/watch?v=" + videoId);
+        // [FIX] Botón de reproducción corregido para usar el mini web (embed) y actualizar título
+        Button btnPlay = new Button("▶");
+        btnPlay.setTooltip(new Tooltip("Reproducir"));
+        btnPlay.setStyle("-fx-background-color: transparent; -fx-text-fill: #00ff00; -fx-cursor: hand; -fx-font-size: 18px; -fx-font-weight: bold;");
+        btnPlay.setOnAction(e -> {
+            e.consume();
+            playYoutubeVideo(videoId, title);
         });
 
         Button btnQueue = new Button("+");
@@ -426,10 +649,16 @@ public class MusicView {
             addToPlaylist(videoId);
         });
 
-        row.getChildren().addAll(thumb, info, btnQueue, btnWebMode);
-        row.setOnMouseClicked(e -> playYoutubeVideo(videoId));
+        row.getChildren().addAll(thumb, info, btnQueue, btnPlay);
+        row.setOnMouseClicked(e -> playYoutubeVideo(videoId, title));
         
         return row;
+    }
+    
+    // [NUEVO] Sobrecarga para actualizar el título en el overlay
+    private void playYoutubeVideo(String videoId, String title) {
+        if (lblOverlayTitle != null) Platform.runLater(() -> lblOverlayTitle.setText(title));
+        playYoutubeVideo(videoId);
     }
 
     private void addToPlaylist(String videoId) {
@@ -441,52 +670,40 @@ public class MusicView {
     private void playYoutubeVideo(String videoId) {
         stopLocalMusic(); // Detener música local
         
-        // Detener timer anterior si existe
-        if (currentTimer != null) {
-            currentTimer.stop();
-            currentTimer = null;
-        }
+        // [FIX] Reiniciar monitor de estado
+        startMonitoring();
 
-        // [FIX] Usar youtube-nocookie.com para evitar bloqueos de privacidad/cookies (Error 153)
-        String embedUrl = "https://www.youtube-nocookie.com/embed/" + videoId + "?autoplay=1&rel=0&modestbranding=1";
-        webPlayer.getEngine().load(embedUrl);
-        
-        // Programar el siguiente video
-        scheduleNextVideo(videoId);
+        // [FIX] Cargar la página completa de YouTube (Mini Web) en lugar del embed
+        String watchUrl = "https://www.youtube.com/watch?v=" + videoId;
+        webPlayer.getEngine().load(watchUrl);
     }
 
-    private void scheduleNextVideo(String videoId) {
-        executor.submit(() -> {
+    // [FIX] Nuevo sistema de monitoreo: Pregunta al video si terminó en lugar de adivinar el tiempo
+    private void startMonitoring() {
+        if (monitorTimer != null) monitorTimer.stop();
+        
+        monitorTimer = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             try {
-                String apiKey = getApiKey();
-                // Obtener detalles del video (duración)
-                String urlStr = "https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=" + videoId + "&key=" + apiKey;
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestMethod("GET");
-                
-                if (conn.getResponseCode() == 200) {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-                    JsonObject json = gson.fromJson(reader, JsonObject.class);
-                    JsonArray items = json.getAsJsonArray("items");
-                    if (items.size() > 0) {
-                        String durationStr = items.get(0).getAsJsonObject().getAsJsonObject("contentDetails").get("duration").getAsString();
-                        // Parsear duración ISO 8601 (ej. PT4M13S)
-                        Duration duration = Duration.parse(durationStr);
-                        
-                        // Añadir un pequeño buffer (2 segundos) para asegurar que termine
-                        long seconds = duration.getSeconds() + 2;
-                        
-                        Platform.runLater(() -> {
-                            currentTimer = new Timeline(new KeyFrame(javafx.util.Duration.seconds(seconds), e -> playNextInPlaylist()));
-                            currentTimer.setCycleCount(1);
-                            currentTimer.play();
-                        });
+                // Inyectar JS para verificar si el video terminó (ended === true)
+                Object result = webPlayer.getEngine().executeScript("var v = document.querySelector('video'); v ? v.ended : false;");
+                if (result instanceof Boolean && (Boolean) result) {
+                    playNextInPlaylist();
+                }
+
+                // [NUEVO] Script para leer el título de la canción sonando y actualizar el overlay
+                Object titleObj = webPlayer.getEngine().executeScript("var t = document.querySelector('.ytp-title-link'); t ? t.innerText : ''");
+                if (titleObj instanceof String) {
+                    String currentTitle = (String) titleObj;
+                    if (!currentTitle.isEmpty() && lblOverlayTitle != null && !lblOverlayTitle.getText().equals(currentTitle)) {
+                        lblOverlayTitle.setText(currentTitle);
                     }
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (Exception ex) { 
+                // Ignorar errores mientras carga la página
             }
-        });
+        }));
+        monitorTimer.setCycleCount(Timeline.INDEFINITE);
+        monitorTimer.play();
     }
 
     private void playNextInPlaylist() {
@@ -520,10 +737,35 @@ public class MusicView {
         btnKeyStop.setOnAction(e -> startKeyBinding(btnKeyStop, code -> keyStop = code));
         grid.add(btnKeyStop, 1, 1);
 
+        grid.add(createLabel("Mini Player:"), 0, 2);
+        btnKeyMiniPlayer = createKeyButton(keyMiniPlayer);
+        btnKeyMiniPlayer.setOnAction(e -> startKeyBinding(btnKeyMiniPlayer, code -> keyMiniPlayer = code));
+        grid.add(btnKeyMiniPlayer, 1, 2);
+
         Label lblInfo = new Label("Haz clic en el botón y presiona una tecla para asignar.");
         lblInfo.setStyle("-fx-text-fill: #aaa; -fx-font-style: italic;");
 
-        settingsView.getChildren().addAll(lblHeader, grid, lblInfo);
+        // [NUEVO] Sección de Optimización
+        Separator sep = new Separator();
+        Label lblOpt = new Label("Optimización");
+        lblOpt.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        chkLowSpecMode = new CheckBox("Modo Bajo Rendimiento (Dispositivos Bajos)");
+        chkLowSpecMode.setStyle("-fx-text-fill: white;");
+        chkLowSpecMode.setTooltip(new Tooltip("Desactiva animaciones y efectos visuales pesados."));
+        chkLowSpecMode.selectedProperty().addListener((obs, old, val) -> applyLowSpecMode(val));
+
+        settingsView.getChildren().addAll(lblHeader, grid, lblInfo, sep, lblOpt, chkLowSpecMode);
+    }
+
+    private void applyLowSpecMode(boolean enabled) {
+        if (enabled) {
+            // Reducir calidad visual o desactivar efectos para ganar FPS
+            if (webPlayer != null) webPlayer.setEffect(null);
+            root.setStyle("-fx-background-color: #111;"); // Fondo sólido simple (menos carga GPU)
+        } else {
+            root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-background-radius: 15;");
+        }
     }
 
     private Label createLabel(String text) {
@@ -571,22 +813,111 @@ public class MusicView {
         } else if (event.getCode() == keyStop) {
             stopLocalMusic();
             if (webPlayer != null) webPlayer.getEngine().load(null);
-            if (currentTimer != null) {
-                currentTimer.stop();
-                playlist.clear();
-                lblQueueStatus.setText("Cola: 0");
+            if (monitorTimer != null) monitorTimer.stop();
+            playlist.clear();
+            lblQueueStatus.setText("Cola: 0");
+        } else if (event.getCode() == keyMiniPlayer) {
+            toggleMiniPlayer();
+        }
+    }
+
+    private void toggleMiniPlayer() {
+        if (miniPlayerStage != null && miniPlayerStage.isShowing()) {
+            // Restaurar a la ventana principal
+            miniPlayerStage.close();
+            miniPlayerStage = null;
+            
+            // Volver a añadir el webPlayer al contenedor original
+            if (playerWrapper != null && !playerWrapper.getChildren().contains(webPlayer)) {
+                // Insertar en la posición correcta (índice 1, después del label)
+                try {
+                    playerWrapper.getChildren().add(1, webPlayer);
+                } catch (Exception e) {
+                    playerWrapper.getChildren().add(webPlayer);
+                }
+                webPlayer.setPrefSize(480, 360); // Restaurar tamaño original
+                webPlayer.setVisible(true); // [FIX] Asegurar visibilidad al volver
+                webPlayer.setOpacity(1.0);  // [FIX] Restaurar opacidad
             }
+        } else {
+            // Activar Mini Player
+            if (webPlayer.getParent() instanceof Pane) {
+                ((Pane) webPlayer.getParent()).getChildren().remove(webPlayer);
+            }
+
+            miniPlayerStage = new Stage();
+            miniPlayerStage.initStyle(StageStyle.TRANSPARENT);
+            miniPlayerStage.setAlwaysOnTop(true);
+
+            // Configurar contenedor del Mini Player (Estilo Spotify/Black Box)
+            StackPane miniRoot = new StackPane();
+            miniRoot.setStyle("-fx-background-color: #111; -fx-border-color: #333; -fx-border-width: 1; -fx-background-radius: 5; -fx-border-radius: 5;");
+            miniRoot.setPadding(new Insets(10));
+            
+            // [FIX] Modo Audio: Ocultar video (1x1 px, invisible) pero mantenerlo en escena para el audio
+            webPlayer.setPrefSize(1, 1);
+            webPlayer.setOpacity(0);
+            
+            // UI de Audio (Título y Estado)
+            VBox audioInfo = new VBox(2);
+            audioInfo.setAlignment(Pos.CENTER_LEFT);
+            
+            Label lblTitle = new Label();
+            lblTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;");
+            if (lblOverlayTitle != null) lblTitle.textProperty().bind(lblOverlayTitle.textProperty());
+            else lblTitle.setText("GMusic Audio");
+            
+            Label lblSub = new Label("Audio Mode");
+            lblSub.setStyle("-fx-text-fill: #00b4db; -fx-font-size: 10px;");
+            
+            audioInfo.getChildren().addAll(lblTitle, lblSub);
+            
+            // Añadir webPlayer (oculto) y la info
+            miniRoot.getChildren().addAll(webPlayer, audioInfo);
+
+            // Permitir arrastrar la ventana
+            miniRoot.setOnMousePressed(event -> {
+                xOffset = event.getSceneX();
+                yOffset = event.getSceneY();
+            });
+            miniRoot.setOnMouseDragged(event -> {
+                miniPlayerStage.setX(event.getScreenX() - xOffset);
+                miniPlayerStage.setY(event.getScreenY() - yOffset);
+            });
+
+            // Tamaño compacto tipo notificación/barra
+            Scene scene = new Scene(miniRoot, 250, 50);
+            scene.setFill(null);
+            miniPlayerStage.setScene(scene);
+            
+            // [FIX] Posicionar ARRIBA a la izquierda (Top-Left)
+            miniPlayerStage.setX(20);
+            miniPlayerStage.setY(50); // Margen superior
+            
+            miniPlayerStage.show();
         }
     }
 
     // --- Helpers ---
-    private ToggleButton createNavButton(String text, ToggleGroup group) {
+    private ToggleButton createNavButton(String text, String iconPath, ToggleGroup group) {
         ToggleButton btn = new ToggleButton(text);
         btn.setToggleGroup(group);
         btn.setMaxWidth(Double.MAX_VALUE);
         btn.setAlignment(Pos.CENTER_LEFT);
         btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #ccc; -fx-font-size: 14px; -fx-cursor: hand; -fx-padding: 10;");
         
+        try {
+            File iconFile = new File(iconPath);
+            if (iconFile.exists()) {
+                ImageView icon = new ImageView(new Image(iconFile.toURI().toString()));
+                icon.setFitWidth(20);
+                icon.setFitHeight(20);
+                btn.setGraphic(icon);
+            }
+        } catch (Exception e) {
+            // Ignorar si no se encuentra el icono
+        }
+
         btn.selectedProperty().addListener((obs, old, val) -> {
             if (val) btn.setStyle("-fx-background-color: rgba(0, 120, 215, 0.3); -fx-text-fill: white; -fx-font-size: 14px; -fx-cursor: hand; -fx-padding: 10; -fx-background-radius: 5;");
             else btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #ccc; -fx-font-size: 14px; -fx-cursor: hand; -fx-padding: 10;");

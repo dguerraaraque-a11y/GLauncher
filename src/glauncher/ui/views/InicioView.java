@@ -27,11 +27,14 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Priority;
+import javafx.scene.text.Font;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.web.WebView;
 import javafx.util.Duration;
 import java.io.BufferedReader;
 import java.io.BufferedInputStream;
@@ -67,6 +70,10 @@ public class InicioView {
     private Label lblUser;
     private Circle avatar;
     private long lastSessionModified = 0;
+    
+    // [FIX] Singleton para mantener el estado de la vista (Perfil, Consola, etc.)
+    private static InicioView instance;
+    private StackPane root;
 
     // [FIX] SSL Handshake fix for old Java 8 / Forge Maven
     // This globally disables SSL certificate validation.
@@ -96,9 +103,28 @@ public class InicioView {
     }
 
     public Parent getView() {
-        StackPane root = new StackPane();
+        if (instance != null) {
+            instance.updateUserInfo(); // Actualizar info si cambió (ej. login)
+            return instance.root;
+        }
+        instance = this;
+
+        root = new StackPane();
         // [FIX] Fondo transparente para que se vea el fondo global
         root.setStyle("-fx-background-color: transparent;");
+        
+        // [NUEVO] Estilos globales personalizados (CSS) para componentes por defecto
+        root.getStylesheets().add("data:text/css," + 
+            ".scroll-bar{ -fx-background-color: transparent; }" +
+            ".scroll-bar .track{ -fx-background-color: transparent; }" +
+            ".scroll-bar .thumb{ -fx-background-color: #444; -fx-background-radius: 5; }" +
+            ".scroll-bar .thumb:hover{ -fx-background-color: #666; }" +
+            ".combo-box-popup .list-view{ -fx-background-color: #222; -fx-border-color: #444; }" +
+            ".combo-box-popup .list-cell{ -fx-text-fill: white; -fx-background-color: transparent; }" +
+            ".combo-box-popup .list-cell:filled:hover{ -fx-background-color: #333; }" +
+            ".combo-box-popup .list-cell:filled:selected{ -fx-background-color: #0078d7; }" +
+            ".tooltip{ -fx-background-color: #222; -fx-text-fill: white; -fx-border-color: #555; -fx-border-radius: 5; -fx-background-radius: 5; -fx-font-size: 12px; }"
+        );
         
         BorderPane layout = new BorderPane();
         layout.setPadding(new Insets(0)); // Sin padding externo para que la barra lateral ocupe todo el alto
@@ -155,7 +181,19 @@ public class InicioView {
         VBox.setVgrow(spacerTop, Priority.ALWAYS);
 
         Label title = new Label("GLAUNCHER");
-        title.setStyle("-fx-text-fill: white; -fx-font-size: 70px; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, cyan, 25, 0.5, 0, 0); -fx-font-family: 'Segoe UI Black', Impact, sans-serif;");
+        // [FIX] Color morado (#A020F0) y fuente por defecto por si falla la carga
+        title.setStyle("-fx-text-fill: #A020F0; -fx-font-size: 70px; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, cyan, 25, 0.5, 0, 0); -fx-font-family: 'Segoe UI Black', Impact, sans-serif;");
+
+        // [NUEVO] Aplicar fuente Minecraft al título
+        try {
+            String fontUrl = resolveAssetPath("assets/fonts/font.ttf");
+            Font minecraftTitleFont = Font.loadFont(fontUrl, 70);
+            if (minecraftTitleFont != null) {
+                title.setFont(minecraftTitleFont);
+                // Actualizar estilo para usar la fuente cargada y mantener el color morado
+                title.setStyle("-fx-text-fill: #A020F0; -fx-effect: dropshadow(three-pass-box, cyan, 25, 0.5, 0, 0);");
+            }
+        } catch (Exception e) { }
 
         // Área de Juego (Barra inferior)
         HBox playArea = new HBox(20); // [MEJORA] Más espacio entre elementos
@@ -200,6 +238,16 @@ public class InicioView {
                               "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.6), 5, 0, 0, 2);";
         
         btnPlay.setStyle(defaultStyle);
+        
+        // [NUEVO] Cargar fuente de Minecraft para el botón JUGAR
+        try {
+            // Intentar cargar la fuente desde assets usando ruta robusta
+            String fontUrl = resolveAssetPath("assets/fonts/font.ttf");
+            Font minecraftFont = Font.loadFont(fontUrl, 24);
+            if (minecraftFont != null) {
+                btnPlay.setFont(minecraftFont);
+            }
+        } catch (Exception e) { System.out.println("Error cargando fuente: " + e.getMessage()); }
         
         // Animación RGB en el borde del botón Play
         Timeline rgbPlay = new Timeline(
@@ -254,7 +302,7 @@ public class InicioView {
         HBox socialBox = new HBox(15);
         socialBox.setAlignment(Pos.CENTER);
         
-        Button btnDiscord = createSocialButton("Discord", "#7289da", "https://discord.gg/tu-invitacion");
+        Button btnDiscord = createSocialButton("Discord", "#7289da", "https://discord.com/invite/b4mtjNcCCV");
         Button btnYoutube = createSocialButton("YouTube", "#ff0000", "https://youtube.com/@DaniCraftYT25");
         Button btnWeb = createSocialButton("Sitio Web", "#0078d7", "https://glauncher.vercel.app");
         
@@ -314,21 +362,6 @@ public class InicioView {
         rightWidgets.setAlignment(Pos.TOP_RIGHT);
         rightWidgets.setPrefWidth(280);
         
-        // Widget Estado del Servidor
-        VBox serverWidget = new VBox(10);
-        serverWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
-        Label serverTitle = new Label("Estado del Servidor");
-        serverTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
-        
-        HBox statusBox = new HBox(10);
-        statusBox.setAlignment(Pos.CENTER_LEFT);
-        Circle statusDot = new Circle(5, Color.LIMEGREEN);
-        Label statusText = new Label("Online - 34/100 Jugadores");
-        statusText.setStyle("-fx-text-fill: #ccc; -fx-font-size: 12px;");
-        statusBox.getChildren().addAll(statusDot, statusText);
-        
-        serverWidget.getChildren().addAll(serverTitle, statusBox);
-
         // Widget Sistema (RAM + Hora) - Movido a la derecha
         VBox sysWidget = new VBox(10);
         sysWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
@@ -365,12 +398,22 @@ public class InicioView {
 
         // Widget de Música
         VBox musicWidget = createMusicWidget();
+
+        // [NUEVO] Widget de Discord
+        VBox discordWidget = createDiscordWidget();
         
-        rightWidgets.getChildren().addAll(serverWidget, sysWidget, musicWidget);
+        rightWidgets.getChildren().addAll(sysWidget, musicWidget, discordWidget);
+
+        // [MEJORA] ScrollPane para la barra derecha por si los widgets ocupan mucho espacio
+        ScrollPane rightScroll = new ScrollPane(rightWidgets);
+        rightScroll.setFitToWidth(true);
+        rightScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        rightScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        rightScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
         layout.setLeft(sidebar);
         layout.setCenter(centerArea);
-        layout.setRight(rightWidgets);
+        layout.setRight(rightScroll);
 
         // Añadir layout y consola al root (StackPane permite superposición)
         root.getChildren().addAll(layout, devConsole);
@@ -404,17 +447,28 @@ public class InicioView {
         controls.getChildren().addAll(btnPrev, btnPlay, btnNext);
         widget.getChildren().addAll(header, songTitle, controls);
         
-        // [GEMINI CODE ASSIST] La lógica anterior fue eliminada porque la clase MusicView
-        // ha sido rediseñada. Ya no es un controlador de música de fondo (Singleton),
-        // sino una vista completa con su propia interfaz.
-        // Este widget ya no puede controlar la música de esa manera.
-        songTitle.setText("Abre la pestaña de Música");
-        btnPrev.setDisable(true);
-        btnPlay.setDisable(true);
-        btnNext.setDisable(true);
+        // [FIX] Conectar con MusicView (Singleton) para hacer funcional el widget
+        Runnable connectMusic = () -> {
+            MusicView mv = MusicView.getInstance();
+            if (mv != null) {
+                if (mv.currentTitleProperty() != null) {
+                    songTitle.textProperty().bind(mv.currentTitleProperty());
+                }
+                btnPlay.setOnAction(e -> mv.togglePlayPause());
+                btnNext.setOnAction(e -> mv.playNext());
+                btnPrev.setOnAction(e -> mv.playPrevious());
+            } else {
+                songTitle.setText("Abre GMusic para iniciar");
+            }
+        };
+        
+        connectMusic.run();
+        // Reintentar conexión al pasar el mouse (por si MusicView se cargó después)
+        widget.setOnMouseEntered(e -> connectMusic.run());
         
         return widget;
     }
+
 
     // [NUEVO] Método auxiliar para cargar iconos fácilmente
     private ImageView loadIcon(String path, double size) {
@@ -433,11 +487,11 @@ public class InicioView {
     private String resolveAssetPath(String path) {
         // 1. Intentar ruta directa (Entorno desarrollo / Portable)
         File f = new File(path);
-        if (f.exists()) return "file:" + f.getAbsolutePath();
+        if (f.exists()) return f.toURI().toString();
         
         // 2. Intentar ruta 'app' (Instalador EXE - Working Dir = Install Dir)
         File appAssets = new File("app" + File.separator + path);
-        if (appAssets.exists()) return "file:" + appAssets.getAbsolutePath();
+        if (appAssets.exists()) return appAssets.toURI().toString();
         
         // 3. Intentar ruta relativa al JAR (Lo más seguro para jpackage)
         try {
@@ -447,11 +501,11 @@ public class InicioView {
             
             if (jarDir != null) {
                 File siblingAssets = new File(jarDir, path);
-                if (siblingAssets.exists()) return "file:" + siblingAssets.getAbsolutePath();
+                if (siblingAssets.exists()) return siblingAssets.toURI().toString();
             }
         } catch (Exception e) { }
         
-        return "file:" + path; // Fallback
+        return new File(path).toURI().toString(); // Fallback
     }
 
     private List<String> getDownloadedVersions() {

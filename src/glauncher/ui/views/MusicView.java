@@ -107,6 +107,32 @@ public class MusicView {
     // Esto evita que se reinicie la vista o se duplique el audio al cambiar de pestaña
     private static MusicView instance;
 
+    // [NUEVO] Métodos públicos para controlar la música desde InicioView (Widget)
+    public static MusicView getInstance() {
+        return instance;
+    }
+
+    public javafx.beans.property.StringProperty currentTitleProperty() {
+        return lblOverlayTitle != null ? lblOverlayTitle.textProperty() : null;
+    }
+
+    public void togglePlayPause() {
+        if (webPlayer != null) {
+            webPlayer.getEngine().executeScript("var vid = document.querySelector('video'); if(vid){ if(vid.paused){vid.play();}else{vid.pause();} }");
+        }
+    }
+
+    public void playNext() {
+        playNextInPlaylist();
+    }
+
+    public void playPrevious() {
+        // Rebobinar 10s como función "anterior" rápida
+        if (webPlayer != null) {
+            webPlayer.getEngine().executeScript("var v = document.querySelector('video'); if(v){ v.currentTime -= 10; }");
+        }
+    }
+
     public Parent getView() {
         if (instance != null) {
             return instance.root;
@@ -116,6 +142,17 @@ public class MusicView {
         root = new BorderPane();
         root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-background-radius: 15;");
         root.setPadding(new Insets(10));
+        
+        // [NUEVO] Estilos personalizados para ScrollBars y Listas
+        root.getStylesheets().add("data:text/css," + 
+            ".scroll-bar{ -fx-background-color: transparent; }" +
+            ".scroll-bar .track{ -fx-background-color: transparent; }" +
+            ".scroll-bar .thumb{ -fx-background-color: #444; -fx-background-radius: 5; }" +
+            ".scroll-bar .thumb:hover{ -fx-background-color: #666; }" +
+            ".list-cell{ -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 5; }" +
+            ".list-cell:filled:selected{ -fx-background-color: #0078d7; -fx-background-radius: 5; }" +
+            ".list-cell:filled:hover{ -fx-background-color: rgba(255,255,255,0.1); -fx-background-radius: 5; }"
+        );
 
         // --- Sidebar ---
         VBox sidebar = new VBox(10);

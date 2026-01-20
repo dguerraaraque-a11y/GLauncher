@@ -1262,50 +1262,81 @@ public class InicioView {
                 
                 Platform.runLater(() -> {
                     lblUser.setText(name);
+                    
                     if (avatarPath != null && new File(avatarPath).exists()) {
-                        // Cargar avatar personalizado local
+                        // --- Cargar avatar personalizado local ---
                         Image customAvatar = new Image(new File(avatarPath).toURI().toString(), false);
                         avatar.setFill(new ImagePattern(customAvatar));
+                        
                     } else if (!"Invitado".equals(name)) {
-                        // Cargar cabeza 3D del skin usando el nombre de usuario
-                        Image skinHead = new Image("https://minotar.net/cube/" + name + "/64.png", true);
+                        // --- CAMBIO: API MC-Heads (Estilo MineSkin) ---
+                        // Carga la skin con la capa externa (overlay) activada.
+                        // Funciona para Premium y No-Premium (por nombre).
+                        String urlApi = "https://mc-heads.net/avatar/" + name + "/64";
+                        
+                        Image skinHead = new Image(urlApi, true); // Carga en segundo plano
+
                         skinHead.progressProperty().addListener((obs, oldVal, newVal) -> {
-                            if (newVal.doubleValue() >= 1.0 && !skinHead.isError()) {
-                                try {
+                            if (newVal.doubleValue() >= 1.0) {
+                                if (!skinHead.isError()) {
                                     avatar.setFill(new ImagePattern(skinHead));
-                                } catch (IllegalArgumentException e) {
-                                    // [FIX] Fallback si la imagen no está lista para ImagePattern
-                                    avatar.setFill(Color.web("#0078d7"));
+                                } else {
+                                    // Si falla la carga, poner a Steve
+                                    aplicarAvatarDefault();
                                 }
                             }
                         });
-                        // [FIX] Añadir un listener de excepción como fallback
-                        skinHead.exceptionProperty().addListener((obs, oldEx, newEx) -> avatar.setFill(Color.web("#0078d7")));
+
+                        // Fallback si hay error de red
+                        skinHead.exceptionProperty().addListener((obs, oldEx, newEx) -> aplicarAvatarDefault());
+                        
                     } else {
-                        avatar.setFill(Color.web("#0078d7"));
+                        aplicarAvatarDefault();
                     }
                 });
             }
         } else {
-            Platform.runLater(() -> { lblUser.setText("Invitado"); avatar.setFill(Color.web("#0078d7")); });
+            Platform.runLater(() -> { 
+                lblUser.setText("Invitado"); 
+                aplicarAvatarDefault(); 
+            });
         }
     }
 
-    private Button createSocialButton(String text, String color, String url) {
-        Button btn = new Button(text);
-        btn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 20; -fx-padding: 5 15;");
-        btn.setOnMouseEntered(e -> btn.setOpacity(0.8));
-        btn.setOnMouseExited(e -> btn.setOpacity(1.0));
-        btn.setOnAction(e -> {
+    private VBox createDiscordWidget() {
+        VBox widget = new VBox(10);
+        widget.setStyle("-fx-background-color: #5865F2; -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
+        
+        Label title = new Label("Discord Oficial");
+        title.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        Label desc = new Label("Únete a nuestra comunidad para soporte y noticias.");
+        desc.setStyle("-fx-text-fill: #E0E0E0; -fx-font-size: 11px;");
+        desc.setWrapText(true);
+        
+        Button btnJoin = new Button("Unirse");
+        btnJoin.setStyle("-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10;");
+        btnJoin.setMaxWidth(Double.MAX_VALUE);
+        
+        btnJoin.setOnAction(e -> {
             try {
-                // [FIX] Uso de reflexión para evitar dependencia directa de AWT (incompatible con Android)
-                Class<?> desktopClass = Class.forName("java.awt.Desktop");
-                Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
-                desktopClass.getMethod("browse", java.net.URI.class).invoke(desktop, new java.net.URI(url));
+                String url = "https://discord.com/invite/b4mtjNcCCV";
+                String os = System.getProperty("os.name").toLowerCase();
+                if (os.contains("win")) {
+                    Runtime.getRuntime().exec("rundll32 url.dll,FileProtocolHandler " + url);
+                } else {
+                    // Compatibilidad con otros sistemas
+                    Class<?> desktopClass = Class.forName("java.awt.Desktop");
+                    Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
+                    desktopClass.getMethod("browse", java.net.URI.class).invoke(desktop, new java.net.URI(url));
+                }
             } catch (Exception ex) { 
-                System.out.println("No se pudo abrir URL: " + url);
+                System.out.println("No se pudo abrir Discord: " + ex.getMessage());
             }
         });
-        return btn;
+        
+        widget.getChildren().addAll(title, desc, btnJoin);
+        return widget;
     }
+
 }

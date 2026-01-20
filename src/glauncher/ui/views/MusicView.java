@@ -14,6 +14,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.CacheHint;
 import javafx.scene.layout.*;
 import javafx.animation.TranslateTransition;
 import javafx.animation.Interpolator;
@@ -21,13 +22,21 @@ import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaView;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
+import javafx.stage.Screen;
+import javafx.geometry.Rectangle2D;
 import javafx.stage.StageStyle;
 import javafx.scene.Scene;
 import javafx.stage.FileChooser;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.DragEvent;
 import org.jsoup.Jsoup;
 
 import java.io.BufferedReader;
@@ -42,11 +51,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.io.FileWriter;
+import com.google.gson.reflect.TypeToken;
 
 public class MusicView {
     
     private final String DATA_DIR = (System.getenv("APPDATA") != null ? 
         System.getenv("APPDATA") : System.getProperty("user.home")) + File.separator + ".glauncher";
+    private final File LOCAL_PLAYLIST_FILE = new File(DATA_DIR, "local_playlist.json");
     private BorderPane root;
     private StackPane contentArea;
     
@@ -60,7 +72,10 @@ public class MusicView {
     // Componentes Interna
     private ListView<File> localFilesList;
     private MediaPlayer localPlayer;
+    private MediaView localMediaView; // [NUEVO] Vista para video
+    private StackPane mediaContainer; // [NUEVO] Contenedor de medios
     private Label lblLocalStatus;
+    private Button btnLocalPlayPause; // [NUEVO] Referencia para cambiar icono
 
     // Componentes YouTube
     private TextField searchField;
@@ -86,6 +101,7 @@ public class MusicView {
     private Button btnKeyStop;
     private Button btnKeyMiniPlayer;
     private CheckBox chkLowSpecMode; // [NUEVO] Checkbox optimización
+    private CheckBox chkAudioOnly;   // [NUEVO] Checkbox modo audio
     private boolean waitingForKey = false;
     private Button activeKeyButton = null;
     
@@ -93,6 +109,7 @@ public class MusicView {
     private Stage miniPlayerStage;
     private double xOffset = 0;
     private double yOffset = 0;
+    private String currentVideoId = null; // [NUEVO] ID del video actual para descargas
 
     // [OPTIMIZACION] Intentar forzar aceleración por hardware para mejorar rendimiento del WebView
     static {
@@ -101,6 +118,10 @@ public class MusicView {
         System.setProperty("prism.order", "d3d,es2,sw");
         System.setProperty("prism.forceGPU", "true"); // Intentar usar GPU aunque sea antigua
         System.setProperty("prism.vsync", "false");   // Desactivar VSync para mejorar respuesta
+        
+        // [NUEVO] Optimizaciones agresivas para WebView y Video
+        System.setProperty("prism.allowhidpi", "false"); // Desactivar escalado HiDPI (mejora FPS)
+        System.setProperty("prism.maxvram", "512");      // Limitar uso de VRAM
     }
 
     // [FIX] Instancia estática para mantener el estado (Singleton)
@@ -139,9 +160,13 @@ public class MusicView {
         }
         instance = this;
 
+        // [NUEVO] Detectar resolución para ajuste automático (Canaima/Laptop)
+        Rectangle2D screen = Screen.getPrimary().getBounds();
+        boolean isLowRes = screen.getWidth() <= 1024 || screen.getHeight() <= 600;
+
         root = new BorderPane();
         root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-background-radius: 15;");
-        root.setPadding(new Insets(10));
+        root.setPadding(new Insets(isLowRes ? 5 : 10)); // Menos padding en pantallas pequeñas
         
         // [NUEVO] Estilos personalizados para ScrollBars y Listas
         root.getStylesheets().add("data:text/css," + 
@@ -155,8 +180,8 @@ public class MusicView {
         );
 
         // --- Sidebar ---
-        VBox sidebar = new VBox(10);
-        sidebar.setPadding(new Insets(10));
+        VBox sidebar = new VBox(isLowRes ? 5 : 10);
+        sidebar.setPadding(new Insets(isLowRes ? 5 : 10));
         sidebar.setPrefWidth(180);
         sidebar.setStyle("-fx-background-color: rgba(255, 255, 255, 0.05); -fx-background-radius: 10;");
 
@@ -211,50 +236,103 @@ public class MusicView {
 
     // --- 1. VISTA INTERNA (Local) ---
     private void initInternalView() {
-        internalView = new VBox(15);
-        internalView.setAlignment(Pos.TOP_LEFT);
+        Rectangle2D screen = Screen.getPrimary().getBounds();
+        boolean isLowRes = screen.getWidth() <= 1024 || screen.getHeight() <= 600;
 
-        Label lblHeader = new Label("Música Local");
+        // [MODIFICADO] Layout dividido: Izquierda (Lista) | Derecha (Reproductor)
+        HBox mainLayout = new HBox(isLowRes ? 10 : 20);
+        mainLayout.setPadding(new Insets(isLowRes ? 5 : 10));
+        mainLayout.setAlignment(Pos.TOP_LEFT);
+        
+        // --- PANEL IZQUIERDO: LISTA DE REPRODUCCIÓN ---
+        VBox leftPane = new VBox(10);
+        HBox.setHgrow(leftPane, Priority.ALWAYS);
+        
+        Label lblHeader = new Label("Mi Lista de Reproducción");
         lblHeader.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
 
-        HBox controls = new HBox(10);
         Button btnAdd = new Button("📂 Añadir Archivos");
-        btnAdd.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-cursor: hand;");
+        btnAdd.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold; -fx-background-radius: 5;");
         btnAdd.setOnAction(e -> addLocalFiles());
 
-        Button btnStop = new Button("⏹ Detener");
-        btnStop.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
-        btnStop.setOnAction(e -> stopLocalMusic());
-
-        controls.getChildren().addAll(btnAdd, btnStop);
-
         localFilesList = new ListView<>();
-        localFilesList.setStyle("-fx-background-color: transparent; -fx-control-inner-background: rgba(0,0,0,0.3);");
-        localFilesList.setCellFactory(param -> new ListCell<File>() {
-            @Override
-            protected void updateItem(File item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    setStyle("-fx-background-color: transparent; -fx-text-fill: white;");
-                } else {
-                    setText(item.getName());
-                    setStyle("-fx-background-color: transparent; -fx-text-fill: white;");
-                }
-            }
+        localFilesList.setStyle("-fx-background-color: rgba(0,0,0,0.3); -fx-control-inner-background: transparent; -fx-background-radius: 10;");
+        VBox.setVgrow(localFilesList, Priority.ALWAYS);
+        
+        // Cargar lista guardada
+        loadLocalPlaylist();
+
+        // [NUEVO] CellFactory personalizado para Drag&Drop y Menú Contextual
+        localFilesList.setCellFactory(param -> new LocalMediaCell());
+
+        leftPane.getChildren().addAll(lblHeader, btnAdd, localFilesList);
+
+        // --- PANEL DERECHO: REPRODUCTOR ---
+        VBox rightPane = new VBox(10);
+        rightPane.setPrefWidth(isLowRes ? 300 : 450);
+        rightPane.setMinWidth(300);
+        rightPane.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15;");
+
+        // Pestañas de Modo (Audio/Video)
+        HBox modeTabs = new HBox(0);
+        modeTabs.setAlignment(Pos.CENTER);
+        ToggleGroup modeGroup = new ToggleGroup();
+        
+        ToggleButton btnAudio = new ToggleButton("Audio");
+        btnAudio.setToggleGroup(modeGroup);
+        btnAudio.setSelected(true);
+        btnAudio.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-background-radius: 5 0 0 5; -fx-cursor: hand; -fx-font-weight: bold;");
+        
+        ToggleButton btnVideo = new ToggleButton("Video");
+        btnVideo.setToggleGroup(modeGroup);
+        btnVideo.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-background-radius: 0 5 5 0; -fx-cursor: hand; -fx-font-weight: bold;");
+
+        // Lógica de cambio de modo
+        btnAudio.setOnAction(e -> {
+            if (!btnAudio.isSelected()) btnAudio.setSelected(true);
+            localMediaView.setVisible(false);
+            btnAudio.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-background-radius: 5 0 0 5;");
+            btnVideo.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-background-radius: 0 5 5 0;");
         });
         
-        localFilesList.setOnMouseClicked(e -> {
-            if (e.getClickCount() == 2) {
-                File selected = localFilesList.getSelectionModel().getSelectedItem();
-                if (selected != null) playLocalFile(selected);
-            }
+        btnVideo.setOnAction(e -> {
+            if (!btnVideo.isSelected()) btnVideo.setSelected(true);
+            localMediaView.setVisible(true);
+            btnVideo.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-background-radius: 0 5 5 0;");
+            btnAudio.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-background-radius: 5 0 0 5;");
         });
 
-        lblLocalStatus = new Label("Listo para reproducir.");
-        lblLocalStatus.setStyle("-fx-text-fill: #aaa;");
+        modeTabs.getChildren().addAll(btnAudio, btnVideo);
 
-        internalView.getChildren().addAll(lblHeader, controls, localFilesList, lblLocalStatus);
+        // Área de Visualización
+        mediaContainer = new StackPane();
+        mediaContainer.setPrefHeight(250);
+        mediaContainer.setStyle("-fx-background-color: black; -fx-background-radius: 10; -fx-border-color: #333; -fx-border-radius: 10;");
+        
+        localMediaView = new MediaView();
+        localMediaView.setFitWidth(isLowRes ? 280 : 400);
+        localMediaView.setPreserveRatio(true);
+        localMediaView.setVisible(false); // Default audio
+        
+        Label lblAudioIcon = new Label("🎵");
+        lblAudioIcon.setStyle("-fx-text-fill: #333; -fx-font-size: 64px;");
+        
+        mediaContainer.getChildren().addAll(lblAudioIcon, localMediaView);
+
+        // Controles
+        lblLocalStatus = new Label("Selecciona un archivo");
+        lblLocalStatus.setStyle("-fx-text-fill: #aaa; -fx-font-size: 12px;");
+        lblLocalStatus.setWrapText(true);
+        lblLocalStatus.setAlignment(Pos.CENTER);
+
+        HBox controls = createPlayerControls();
+
+        rightPane.getChildren().addAll(modeTabs, mediaContainer, lblLocalStatus, controls);
+
+        mainLayout.getChildren().addAll(leftPane, rightPane);
+        
+        internalView = new VBox(mainLayout);
+        VBox.setVgrow(mainLayout, Priority.ALWAYS);
     }
 
     private void addLocalFiles() {
@@ -263,6 +341,7 @@ public class MusicView {
         List<File> files = fc.showOpenMultipleDialog(root.getScene().getWindow());
         if (files != null) {
             localFilesList.getItems().addAll(files);
+            saveLocalPlaylist(); // Guardar cambios
         }
     }
 
@@ -274,9 +353,12 @@ public class MusicView {
         try {
             Media media = new Media(file.toURI().toString());
             localPlayer = new MediaPlayer(media);
+            localMediaView.setMediaPlayer(localPlayer); // Conectar video
+            
             localPlayer.setOnEndOfMedia(this::playNextLocal);
             localPlayer.play();
             lblLocalStatus.setText("Reproduciendo: " + file.getName());
+            if (btnLocalPlayPause != null) btnLocalPlayPause.setText("⏸");
         } catch (Exception e) {
             lblLocalStatus.setText("Error al reproducir: " + e.getMessage());
         }
@@ -296,17 +378,146 @@ public class MusicView {
             localPlayer.dispose();
             localPlayer = null;
             lblLocalStatus.setText("Detenido.");
+            if (btnLocalPlayPause != null) btnLocalPlayPause.setText("▶");
+        }
+    }
+
+    // [NUEVO] Controles del reproductor local
+    private HBox createPlayerControls() {
+        HBox box = new HBox(15);
+        box.setAlignment(Pos.CENTER);
+        
+        Button btnPrev = new Button("⏮");
+        btnPrev.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-cursor: hand;");
+        btnPrev.setOnAction(e -> {
+            int idx = localFilesList.getSelectionModel().getSelectedIndex();
+            if (idx > 0) {
+                localFilesList.getSelectionModel().select(idx - 1);
+                playLocalFile(localFilesList.getItems().get(idx - 1));
+            }
+        });
+
+        btnLocalPlayPause = new Button("▶");
+        btnLocalPlayPause.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-font-size: 20px; -fx-background-radius: 50; -fx-min-width: 40px; -fx-min-height: 40px; -fx-cursor: hand;");
+        btnLocalPlayPause.setOnAction(e -> {
+            if (localPlayer != null) {
+                if (localPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
+                    localPlayer.pause();
+                    btnLocalPlayPause.setText("▶");
+                } else {
+                    localPlayer.play();
+                    btnLocalPlayPause.setText("⏸");
+                }
+            }
+        });
+
+        Button btnNext = new Button("⏭");
+        btnNext.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-cursor: hand;");
+        btnNext.setOnAction(e -> playNextLocal());
+        
+        Button btnStop = new Button("⏹");
+        btnStop.setStyle("-fx-background-color: transparent; -fx-text-fill: #d9534f; -fx-font-size: 16px; -fx-cursor: hand;");
+        btnStop.setOnAction(e -> stopLocalMusic());
+
+        box.getChildren().addAll(btnPrev, btnLocalPlayPause, btnNext, btnStop);
+        return box;
+    }
+
+    // [NUEVO] Persistencia de Playlist
+    private void saveLocalPlaylist() {
+        try {
+            List<String> paths = new ArrayList<>();
+            for (File f : localFilesList.getItems()) paths.add(f.getAbsolutePath());
+            try (FileWriter writer = new FileWriter(LOCAL_PLAYLIST_FILE)) {
+                new Gson().toJson(paths, writer);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void loadLocalPlaylist() {
+        if (LOCAL_PLAYLIST_FILE.exists()) {
+            try (FileReader reader = new FileReader(LOCAL_PLAYLIST_FILE)) {
+                List<String> paths = new Gson().fromJson(reader, new TypeToken<List<String>>(){}.getType());
+                if (paths != null) {
+                    for (String p : paths) {
+                        File f = new File(p);
+                        if (f.exists()) localFilesList.getItems().add(f);
+                    }
+                }
+            } catch (Exception e) { e.printStackTrace(); }
+        }
+    }
+
+    // [NUEVO] Celda personalizada para Drag&Drop y Menú Contextual
+    private class LocalMediaCell extends ListCell<File> {
+        public LocalMediaCell() {
+            // Drag & Drop
+            setOnDragDetected(event -> {
+                if (getItem() == null) return;
+                Dragboard db = startDragAndDrop(TransferMode.MOVE);
+                ClipboardContent content = new ClipboardContent();
+                content.putString(String.valueOf(getIndex()));
+                db.setContent(content);
+                event.consume();
+            });
+            setOnDragOver(event -> {
+                if (event.getGestureSource() != this && event.getDragboard().hasString()) event.acceptTransferModes(TransferMode.MOVE);
+                event.consume();
+            });
+            setOnDragDropped(event -> {
+                if (getItem() == null) return;
+                Dragboard db = event.getDragboard();
+                boolean success = false;
+                if (db.hasString()) {
+                    int draggedIdx = Integer.parseInt(db.getString());
+                    int thisIdx = getIndex();
+                    File draggedItem = getListView().getItems().get(draggedIdx);
+                    getListView().getItems().remove(draggedIdx);
+                    getListView().getItems().add(thisIdx, draggedItem);
+                    saveLocalPlaylist();
+                    success = true;
+                }
+                event.setDropCompleted(success);
+                event.consume();
+            });
+            
+            // Menú Contextual
+            ContextMenu cm = new ContextMenu();
+            cm.setStyle("-fx-background-color: #222; -fx-border-color: #444;");
+            MenuItem playItem = new MenuItem("Reproducir");
+            playItem.setStyle("-fx-text-fill: white;");
+            playItem.setOnAction(e -> playLocalFile(getItem()));
+            MenuItem deleteItem = new MenuItem("Eliminar");
+            deleteItem.setStyle("-fx-text-fill: #ff5555;");
+            deleteItem.setOnAction(e -> { getListView().getItems().remove(getItem()); saveLocalPlaylist(); });
+            cm.getItems().addAll(playItem, deleteItem);
+            setContextMenu(cm);
+        }
+        @Override
+        protected void updateItem(File item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+                setStyle("-fx-background-color: transparent;");
+            } else {
+                setText(item.getName());
+                setStyle("-fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 8; -fx-border-color: transparent transparent #333 transparent;");
+                setOnMouseClicked(e -> { if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) playLocalFile(item); });
+            }
         }
     }
 
     // --- 2. VISTA YOUTUBE ---
     private void initYoutubeView() {
-        youtubeView = new VBox(20);
+        Rectangle2D screen = Screen.getPrimary().getBounds();
+        boolean isLowRes = screen.getWidth() <= 1024 || screen.getHeight() <= 600;
+
+        youtubeView = new VBox(isLowRes ? 10 : 20);
         youtubeView.setAlignment(Pos.TOP_CENTER);
-        youtubeView.setPadding(new Insets(20));
+        youtubeView.setPadding(new Insets(isLowRes ? 10 : 20));
 
         // --- Header & Búsqueda ---
-        HBox headerBox = new HBox(20);
+        HBox headerBox = new HBox(isLowRes ? 10 : 20);
         headerBox.setAlignment(Pos.CENTER_LEFT);
         
         Label lblHeader = new Label("YouTube");
@@ -336,7 +547,7 @@ public class MusicView {
         headerBox.getChildren().addAll(lblHeader, spacer, searchBox);
 
         // --- Contenido Principal (Split: Resultados | Reproductor) ---
-        HBox mainContent = new HBox(20);
+        HBox mainContent = new HBox(isLowRes ? 10 : 20);
         VBox.setVgrow(mainContent, Priority.ALWAYS);
         mainContent.setAlignment(Pos.TOP_LEFT);
 
@@ -352,25 +563,63 @@ public class MusicView {
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
         // Columna Derecha: Reproductor Fijo
-        playerWrapper = new VBox(15);
-        playerWrapper.setPrefWidth(500);
-        playerWrapper.setMinWidth(500);
+        playerWrapper = new VBox(isLowRes ? 10 : 15);
+        playerWrapper.setPrefWidth(isLowRes ? 340 : 500); // Más angosto en pantallas pequeñas
+        playerWrapper.setMinWidth(300); // [FIX] Permitir encoger en pantallas pequeñas (Canaimas)
         playerWrapper.setAlignment(Pos.TOP_CENTER);
         playerWrapper.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 15; -fx-padding: 15;"); // [FIX] Fondo más oscuro para resaltar
 
         webPlayer = new WebView();
         // [FIX] Tamaño dinámico/grande para el panel "mini web" (Panel completo)
-        webPlayer.setPrefSize(480, 360); 
-        webPlayer.setMinSize(300, 250);
+        if (isLowRes) {
+            webPlayer.setPrefSize(320, 240); // Tamaño reducido para 1024x600
+            webPlayer.setMinSize(280, 200);
+        } else {
+            webPlayer.setPrefSize(480, 360); 
+            webPlayer.setMinSize(300, 250);
+        }
         // [FIX] User-Agent actualizado a Chrome 133 para mejor compatibilidad y calidad
         webPlayer.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
         webPlayer.setContextMenuEnabled(false); // Desactivar menú contextual para ahorrar recursos
         
+        // [OPTIMIZACION] Cachear el nodo WebView para rendimiento
+        webPlayer.setCache(true);
+        webPlayer.setCacheHint(CacheHint.SPEED);
+        
         Label lblNowPlaying = new Label("Reproductor");
         lblNowPlaying.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
         
+        // [NUEVO] Checkbox para modo audio (Ahorro de recursos extremo)
+        chkAudioOnly = new CheckBox("Modo Audio (Sin Video - Ahorra CPU)");
+        chkAudioOnly.setStyle("-fx-text-fill: #aaa; -fx-font-size: 11px; -fx-cursor: hand;");
+        chkAudioOnly.selectedProperty().addListener((obs, old, val) -> {
+            if (val) {
+                // Ocultar video casi por completo para liberar GPU/CPU
+                webPlayer.setMaxHeight(1);
+                webPlayer.setMinHeight(1);
+                webPlayer.setPrefHeight(1);
+                webPlayer.setOpacity(0);
+                lblNowPlaying.setText("Reproductor (Audio Activo)");
+            } else {
+                webPlayer.setMaxHeight(Double.MAX_VALUE);
+                webPlayer.setMinHeight(250);
+                webPlayer.setPrefHeight(360);
+                webPlayer.setOpacity(1);
+                lblNowPlaying.setText("Reproductor");
+            }
+        });
+        
+        // [NUEVO] Botón de descarga MP3
+        Button btnDownloadMp3 = new Button("⬇ MP3");
+        btnDownloadMp3.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 10px; -fx-cursor: hand; -fx-padding: 3 8; -fx-background-radius: 3;");
+        btnDownloadMp3.setTooltip(new Tooltip("Descargar canción actual"));
+        btnDownloadMp3.setOnAction(e -> downloadCurrentSong());
+
+        HBox controlsRow = new HBox(10, chkAudioOnly, new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, btnDownloadMp3);
+        controlsRow.setAlignment(Pos.CENTER_LEFT);
+
         // [FIX] Eliminadas pestañas de categoría (Colas/Detalles) a petición del usuario
-        playerWrapper.getChildren().addAll(lblNowPlaying, webPlayer);
+        playerWrapper.getChildren().addAll(lblNowPlaying, controlsRow, webPlayer);
 
         mainContent.getChildren().addAll(resultsWrapper, playerWrapper);
         
@@ -705,6 +954,7 @@ public class MusicView {
     }
 
     private void playYoutubeVideo(String videoId) {
+        this.currentVideoId = videoId; // [NUEVO] Guardar ID para descarga
         stopLocalMusic(); // Detener música local
         
         // [FIX] Reiniciar monitor de estado
@@ -714,12 +964,30 @@ public class MusicView {
         String watchUrl = "https://www.youtube.com/watch?v=" + videoId;
         webPlayer.getEngine().load(watchUrl);
     }
+    
+    // [NUEVO] Método para descargar la canción actual
+    private void downloadCurrentSong() {
+        if (currentVideoId == null) {
+            glauncher.MainView.showNotification("GMusic", "No hay ninguna canción reproduciéndose.", "warning");
+            return;
+        }
+        try {
+            // Copiar URL al portapapeles para facilitar
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString("https://www.youtube.com/watch?v=" + currentVideoId);
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+            
+            // Abrir servicio de descarga limpio
+            java.awt.Desktop.getDesktop().browse(new java.net.URI("https://cobalt.tools/"));
+            glauncher.MainView.showNotification("Descarga", "Enlace copiado. Pégalo en la web para descargar.", "info");
+        } catch (Exception e) { e.printStackTrace(); }
+    }
 
     // [FIX] Nuevo sistema de monitoreo: Pregunta al video si terminó en lugar de adivinar el tiempo
     private void startMonitoring() {
         if (monitorTimer != null) monitorTimer.stop();
         
-        monitorTimer = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+        monitorTimer = new Timeline(new KeyFrame(Duration.seconds(2), e -> { // [FIX] Intervalo aumentado a 2s para reducir carga CPU
             try {
                 // Inyectar JS para verificar si el video terminó (ended === true)
                 Object result = webPlayer.getEngine().executeScript("var v = document.querySelector('video'); v ? v.ended : false;");
@@ -754,7 +1022,10 @@ public class MusicView {
 
     // --- 3. VISTA AJUSTES (Hotkeys) ---
     private void initSettingsView() {
-        settingsView = new VBox(20);
+        Rectangle2D screen = Screen.getPrimary().getBounds();
+        boolean isLowRes = screen.getWidth() <= 1024 || screen.getHeight() <= 600;
+
+        settingsView = new VBox(isLowRes ? 10 : 20);
         settingsView.setAlignment(Pos.TOP_LEFT);
 
         Label lblHeader = new Label("Configuración de Teclas (Hotkeys)");
@@ -800,8 +1071,13 @@ public class MusicView {
             // Reducir calidad visual o desactivar efectos para ganar FPS
             if (webPlayer != null) webPlayer.setEffect(null);
             root.setStyle("-fx-background-color: #111;"); // Fondo sólido simple (menos carga GPU)
+            
+            // [NUEVO] Activar modo audio automáticamente en modo bajo rendimiento
+            if (chkAudioOnly != null) chkAudioOnly.setSelected(true);
         } else {
             root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-background-radius: 15;");
+            // Restaurar si se desactiva
+            if (chkAudioOnly != null) chkAudioOnly.setSelected(false);
         }
     }
 

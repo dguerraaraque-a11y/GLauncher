@@ -35,6 +35,8 @@ import javax.net.ssl.X509TrustManager;
 import javafx.stage.FileChooser;
 import java.awt.Desktop;
 import java.util.function.Consumer;
+import org.kordamp.ikonli.fontawesome.FontAwesome;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public class VersionesView {
 
@@ -224,6 +226,8 @@ public class VersionesView {
         HBox.setHgrow(lblName, Priority.ALWAYS);
 
         Button btnDelete = new Button("Borrar");
+        Button btnDelete = new Button();
+        btnDelete.setGraphic(new FontIcon(FontAwesome.TRASH));
         btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
         btnDelete.setOnAction(e -> {
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
@@ -314,11 +318,16 @@ public class VersionesView {
         topBar.setAlignment(Pos.CENTER_RIGHT);
 
         Button btnCrear = new Button("+ Crear Instancia");
+        Button btnCrear = new Button(" Crear Instancia");
+        btnCrear.setGraphic(new FontIcon(FontAwesome.PLUS));
         btnCrear.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
         btnCrear.setOnAction(e -> showCreateInstanceDialog());
 
         Button btnRecargar = new Button("↻");
         btnRecargar.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand;");
+        Button btnRecargar = new Button();
+        btnRecargar.setGraphic(new FontIcon(FontAwesome.REFRESH));
+        btnRecargar.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand; -fx-padding: 5 10;");
         btnRecargar.setOnAction(e -> loadInstances());
 
         topBar.getChildren().addAll(btnCrear, btnRecargar);
@@ -400,12 +409,16 @@ public class VersionesView {
         HBox.setHgrow(info, Priority.ALWAYS);
 
         Button btnPlay = new Button("JUGAR");
+        btnPlay.setGraphic(new FontIcon(FontAwesome.PLAY));
         btnPlay.setStyle("-fx-background-color: #3c8527; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
         btnPlay.setPrefHeight(40);
         btnPlay.setOnAction(e -> launchInstance(instanceDir));
 
         Button btnFolder = new Button("📂");
         btnFolder.setStyle("-fx-background-color: #f0ad4e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        Button btnFolder = new Button();
+        btnFolder.setGraphic(new FontIcon(FontAwesome.FOLDER_OPEN_O));
+        btnFolder.setStyle("-fx-background-color: #f0ad4e; -fx-text-fill: white; -fx-cursor: hand;");
         btnFolder.setPrefHeight(40);
         btnFolder.setTooltip(new Tooltip("Abrir carpeta de la instancia"));
         btnFolder.setOnAction(e -> {
@@ -416,6 +429,9 @@ public class VersionesView {
 
         Button btnDelete = new Button("X");
         btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
+        Button btnDelete = new Button();
+        btnDelete.setGraphic(new FontIcon(FontAwesome.TRASH_O));
+        btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand; -fx-padding: 5 10;");
         btnDelete.setOnAction(e -> {
             if (new Alert(Alert.AlertType.CONFIRMATION, "¿Borrar instancia?", ButtonType.YES, ButtonType.NO).showAndWait().orElse(ButtonType.NO) == ButtonType.YES) {
                 deleteDirectory(instanceDir);

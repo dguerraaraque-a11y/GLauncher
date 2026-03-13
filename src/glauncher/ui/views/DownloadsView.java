@@ -58,6 +58,9 @@ public class DownloadsView {
     private Label progressTitle;
     private Label progressStatus;
 
+    // [OPTIMIZACION] Cargar placeholder una sola vez y en segundo plano para evitar congelamientos
+    private static final Image PLACEHOLDER_ICON = new Image("https://cdn.modrinth.com/assets/logo.png", 80, 80, true, true, true);
+
     // [FIX] Parche SSL Global para APIs (Modrinth/Fabric/Mojang) en el .EXE
     static {
         TrustManager[] trustAllCerts = new TrustManager[]{
@@ -274,8 +277,7 @@ public class DownloadsView {
         icon.setPreserveRatio(true);
         
         // [FIX] Carga robusta con User-Agent para evitar bloqueo de Modrinth (Error 403/429)
-        Image placeholder = new Image("https://cdn.modrinth.com/assets/logo.png", 80, 80, true, true);
-        icon.setImage(placeholder);
+        icon.setImage(PLACEHOLDER_ICON);
 
         if (iconUrl != null) {
             executor.submit(() -> {

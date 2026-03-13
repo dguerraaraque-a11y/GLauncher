@@ -1,0 +1,7 @@
+out/
+.vscode/
+temp_input/
+sources.txt
+Ver.bat
+build.bat
+logs/

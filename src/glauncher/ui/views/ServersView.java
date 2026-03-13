@@ -4,7 +4,11 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 import glauncher.MainView;
+import javafx.animation.FadeTransition;
+import javafx.util.Duration;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
@@ -13,8 +17,10 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.stage.FileChooser;
-
+import java.awt.Graphics2D;
 import java.io.*;
 import java.awt.Desktop;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +28,7 @@ import java.security.MessageDigest;
 import java.math.BigInteger;
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.net.URLEncoder;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -43,13 +50,17 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import javax.imageio.ImageIO;
+import javafx.embed.swing.SwingFXUtils;
+import java.util.Map;
+import java.util.HashMap;
 
 public class ServersView {
 
-    private final String DATA_DIR = (System.getenv("APPDATA") != null ?
+    private final String DATA_DIR = (System.getenv("APPDATA") != null ? 
         System.getenv("APPDATA") : System.getProperty("user.home")) + File.separator + ".glauncher";
-    private final ExecutorService executor = Executors.newCachedThreadPool();
     private final Gson gson = new Gson();
+    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     private ComboBox<String> typeBox;
     private ComboBox<String> verBox;
@@ -73,10 +84,17 @@ public class ServersView {
     private ComboBox<String> modrinthLoaderBox;
     private ComboBox<String> modrinthTypeBox; // Nuevo filtro de tipo
     private File currentServerForMods;
+    
+    private File creationIconFile;
+    private List<String> pluginsToInstall = new ArrayList<>();
+    private TextField searchField;
+    private final File FAVORITES_FILE = new File(DATA_DIR, "favorites.json");
+    private List<String> favoriteServers = new ArrayList<>();
 
     public Parent getView() {
         StackPane rootStack = new StackPane();
         BorderPane rootPane = new BorderPane();
+        loadFavorites(); // Cargar favoritos al iniciar
         rootPane.setPadding(new Insets(20));
 
         // --- BARRA LATERAL FLOTANTE (Izquierda) ---
@@ -85,6 +103,7 @@ public class ServersView {
         sidebar.setPadding(new Insets(20));
         sidebar.setStyle("-fx-background-color: rgba(30, 30, 30, 0.95); -fx-background-radius: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 5);");
         sidebar.setAlignment(Pos.TOP_CENTER);
+
 
         Label lblTitle = new Label("Servidores");
         lblTitle.setStyle("-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;");
@@ -119,9 +138,7 @@ public class ServersView {
 
         // Inicializar Overlay de Modrinth
         modrinthOverlay = createModrinthOverlay();
-        rootStack.getChildren().add(modrinthOverlay); // Añadir antes del progressOverlay si se quiere debajo, o después
         modDetailsOverlay = createModDetailsOverlay();
-        rootStack.getChildren().add(modDetailsOverlay);
 
         rootPane.setLeft(sidebar);
         rootPane.setCenter(contentPanel);
@@ -174,19 +191,28 @@ public class ServersView {
     }
 
     private Node createCreateServerView() {
-        VBox layout = new VBox(20);
-        layout.setAlignment(Pos.TOP_LEFT);
+        ScrollPane scroll = new ScrollPane();
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
+        VBox layout = new VBox(25);
+        layout.setAlignment(Pos.TOP_CENTER);
+        layout.setPadding(new Insets(20));
+        layout.setStyle("-fx-background-color: transparent;");
 
         Label header = new Label("Crear Servidor Avanzado");
         header.setStyle("-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;");
 
+        // --- SECCIÓN 1: INFORMACIÓN BÁSICA ---
+        VBox basicSection = new VBox(15);
+        basicSection.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 10; -fx-padding: 20;");
+        
         GridPane grid = new GridPane();
         grid.setHgap(20);
         grid.setVgap(20);
         
-        // Inputs simulados
         TextField nameField = new TextField(); nameField.setPromptText("Nombre del Servidor");
-        nameField.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 5;");
+        styleField(nameField);
         
         typeBox = new ComboBox<>();
         typeBox.getItems().addAll("Paper (Optimizado)", "Vanilla", "Fabric", "Forge");
@@ -199,28 +225,78 @@ public class ServersView {
         verBox.setStyle("-fx-base: #333; -fx-text-fill: white;");
         updateAvailableVersions("Paper (Optimizado)"); // Carga inicial
 
-        Slider ramSlider = new Slider(1, 16, 4);
-        ramSlider.setBlockIncrement(1);
-        ramSlider.setMajorTickUnit(1);
-        ramSlider.setMinorTickCount(0);
-        ramSlider.setShowTickLabels(true);
-        ramSlider.setShowTickMarks(true);
+        // Selector de Icono
+        ImageView iconPreview = new ImageView(new Image("https://assets.ppy.sh/beatmaps/12345/covers/list.jpg"));
+        iconPreview.setFitWidth(80); iconPreview.setFitHeight(80);
+        iconPreview.setPreserveRatio(true);
         
+        Button btnSelectIcon = new Button("Seleccionar Icono");
+        btnSelectIcon.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand;");
+        btnSelectIcon.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Imágenes", "*.png", "*.jpg", "*.jpeg"));
+            File f = fc.showOpenDialog(null);
+            if (f != null) {
+                creationIconFile = f;
+                iconPreview.setImage(new Image(f.toURI().toString()));
+            }
+        });
+
+        VBox iconBox = new VBox(10, iconPreview, btnSelectIcon);
+        iconBox.setAlignment(Pos.CENTER);
+
         grid.add(new Label("Nombre:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 0);
         grid.add(nameField, 1, 0);
         grid.add(new Label("Tipo:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 1);
         grid.add(typeBox, 1, 1);
         grid.add(new Label("Versión:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 2);
         grid.add(verBox, 1, 2);
-        grid.add(new Label("RAM (GB):") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 3);
-        grid.add(ramSlider, 1, 3);
+        
+        grid.add(iconBox, 2, 0, 1, 3); // Icono a la derecha
+
+        basicSection.getChildren().addAll(new Label("Información Básica") {{ setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"); }}, grid);
+
+        // --- SECCIÓN 2: RECURSOS Y PLUGINS ---
+        VBox pluginsSection = new VBox(15);
+        pluginsSection.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 10; -fx-padding: 20;");
+        
+        Label lblPlugins = new Label("Pre-instalar Plugins/Mods Comunes");
+        lblPlugins.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+        
+        FlowPane pluginsPane = new FlowPane(10, 10);
+        String[] commonPlugins = {"EssentialsX", "WorldEdit", "Vault", "ViaVersion", "SkinsRestorer", "LuckPerms"};
+        pluginsToInstall.clear();
+        
+        for (String p : commonPlugins) {
+            CheckBox cb = new CheckBox(p);
+            cb.setStyle("-fx-text-fill: white;");
+            cb.selectedProperty().addListener((obs, old, val) -> {
+                if (val) pluginsToInstall.add(p);
+                else pluginsToInstall.remove(p);
+            });
+            pluginsPane.getChildren().add(cb);
+        }
+        pluginsSection.getChildren().addAll(lblPlugins, pluginsPane);
+
+        // --- SECCIÓN 3: AVANZADO (RAM) ---
+        VBox advancedSection = new VBox(15);
+        advancedSection.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 10; -fx-padding: 20;");
+        
+        Slider ramSlider = new Slider(1, 16, 4);
+        ramSlider.setBlockIncrement(1);
+        ramSlider.setMajorTickUnit(1);
+        ramSlider.setMinorTickCount(0);
+        ramSlider.setShowTickLabels(true);
+        ramSlider.setShowTickMarks(true);
+        advancedSection.getChildren().addAll(new Label("Asignación de RAM (GB)") {{ setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"); }}, ramSlider);
 
         Button btnStart = new Button("🚀 Iniciar Servidor");
         btnStart.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10 30; -fx-background-radius: 20; -fx-cursor: hand;");
         btnStart.setOnAction(e -> initiateServerCreation(nameField.getText(), (int) ramSlider.getValue()));
 
-        layout.getChildren().addAll(header, grid, new Separator(), btnStart);
-        return layout;
+        layout.getChildren().addAll(header, basicSection, pluginsSection, advancedSection, new Separator(), btnStart);
+        scroll.setContent(layout);
+        return scroll;
     }
 
     private Node createMyServersView() {
@@ -244,15 +320,194 @@ public class ServersView {
     }
 
     private Node createSearchServerView() {
-        VBox layout = new VBox(20);
-        Label header = new Label("Explorar Servidores");
-        header.setStyle("-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;");
+        VBox layout = new VBox(15);
+        layout.setPadding(new Insets(20));
         
-        Label placeholder = new Label("Próximamente: Lista de servidores públicos.");
-        placeholder.setStyle("-fx-text-fill: #aaa;");
+        // Header y Búsqueda
+        HBox header = new HBox(15);
+        header.setAlignment(Pos.CENTER_LEFT);
+        Label title = new Label("Explorar Servidores");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
         
-        layout.getChildren().addAll(header, placeholder);
+        searchField = new TextField();
+        searchField.setPromptText("Buscar por IP o Nombre...");
+        styleField(searchField);
+        searchField.setPrefWidth(300);
+
+        ToggleButton btnFavorites = new ToggleButton("⭐");
+        btnFavorites.setTooltip(new Tooltip("Mostrar solo favoritos"));
+        btnFavorites.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
+        btnFavorites.selectedProperty().addListener((obs, old, val) -> {
+             if (val) btnFavorites.setStyle("-fx-background-color: gold; -fx-text-fill: black; -fx-cursor: hand; -fx-font-size: 14px;");
+             else btnFavorites.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
+        });
+        
+        Button btnSearch = new Button("🔍");
+        btnSearch.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-cursor: hand;");
+        
+        header.getChildren().addAll(title, new Region() {{ HBox.setHgrow(this, Priority.ALWAYS); }}, searchField, btnFavorites, btnSearch);
+        
+        // Contenedor de resultados
+        ScrollPane scroll = new ScrollPane();
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        
+        FlowPane resultsPane = new FlowPane(15, 15);
+        resultsPane.setPadding(new Insets(10));
+        resultsPane.setAlignment(Pos.TOP_LEFT);
+        scroll.setContent(resultsPane);
+        
+        // Lógica de carga
+        Runnable loadContent = () -> {
+            String query = searchField.getText().toLowerCase().trim();
+            resultsPane.getChildren().clear();
+            
+            List<Node> resultNodes = new ArrayList<>();
+            List<String> foundIps = new ArrayList<>(); // To avoid duplicates
+
+            // 0. Filtro de Favoritos
+            if (btnFavorites.isSelected()) {
+                for (String favIp : favoriteServers) {
+                    if (query.isEmpty() || favIp.toLowerCase().contains(query)) {
+                        resultNodes.add(createPublicServerCard(favIp, favIp, "Favorito"));
+                    }
+                }
+                if (resultNodes.isEmpty()) {
+                    resultsPane.getChildren().add(new Label("No tienes servidores favoritos guardados.") {{ setStyle("-fx-text-fill: #aaa;"); }});
+                } else {
+                    resultsPane.getChildren().addAll(resultNodes);
+                }
+                return;
+            }
+
+            // 1. Search Local Servers
+            File serversDir = new File(DATA_DIR, "servers");
+            if (serversDir.exists() && serversDir.isDirectory()) {
+                File[] localServerDirs = serversDir.listFiles(File::isDirectory);
+                if (localServerDirs != null) {
+                    for (File serverDir : localServerDirs) {
+                        JsonObject meta = loadServerMetadata(serverDir);
+                        String name = meta.has("name") ? meta.get("name").getAsString().toLowerCase() : "";
+                        String domain = meta.has("public_domain") ? meta.get("public_domain").getAsString().toLowerCase() : "";
+
+                        if (query.isEmpty() || name.contains(query) || domain.contains(query)) {
+                            Properties props = loadServerProperties(serverDir);
+                            String port = props.getProperty("server-port", "25565");
+                            String localIpAndPort = "127.0.0.1:" + port;
+                            
+                            String displayName = domain.isEmpty() || !domain.contains(query) ? name : domain;
+                            if (displayName.isEmpty()) displayName = serverDir.getName();
+
+                            resultNodes.add(createPublicServerCard(localIpAndPort, displayName, "Servidor Local"));
+                            foundIps.add(displayName);
+                        }
+                    }
+                }
+            }
+
+            // 2. Search Public/Featured Servers
+            String[] featured = {"mc.hypixel.net", "play.cubecraft.net", "us.mineplex.com", "play.wynncraft.com", "mc.universocraft.com", "eu.hivemc.com", "play.pika-network.net", "librecraft.com"};
+            for (String ip : featured) {
+                if (query.isEmpty() || ip.toLowerCase().contains(query)) {
+                    if (!foundIps.contains(ip.toLowerCase())) {
+                        resultNodes.add(createPublicServerCard(ip, ip, "Destacado"));
+                        foundIps.add(ip.toLowerCase());
+                    }
+                }
+            }
+
+            // 3. Direct IP/Domain search if not found elsewhere
+            if (!query.isEmpty() && query.contains(".") && !foundIps.contains(query)) {
+                 resultNodes.add(0, createPublicServerCard(query, query, "Búsqueda Directa"));
+            }
+            
+            if (resultNodes.isEmpty()) {
+                Label noResults = new Label("No se encontraron servidores.");
+                noResults.setStyle("-fx-text-fill: #aaa; -fx-padding: 20;");
+                resultsPane.getChildren().add(noResults);
+            } else {
+                resultsPane.getChildren().addAll(resultNodes);
+            }
+        };
+        
+        btnFavorites.setOnAction(e -> loadContent.run());
+        btnSearch.setOnAction(e -> loadContent.run());
+        searchField.setOnAction(e -> loadContent.run());
+        loadContent.run(); // Carga inicial
+        
+        layout.getChildren().addAll(header, new Separator(), scroll);
         return layout;
+    }
+
+    private Node createPublicServerCard(String pingIp, String displayIp, String tag) {
+        StackPane cardContainer = new StackPane();
+        
+        VBox card = new VBox(10);
+        card.setPrefSize(200, 220);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: rgba(30, 30, 30, 0.8); -fx-background-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+        card.setAlignment(Pos.TOP_CENTER);
+        
+        ImageView icon = new ImageView();
+        icon.setFitWidth(64); icon.setFitHeight(64);
+        
+        Label lblIp = new Label(displayIp);
+        lblIp.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        Label lblStatus = new Label("Cargando...");
+        lblStatus.setStyle("-fx-text-fill: #aaa; -fx-font-size: 12px;");
+        
+        Button btnAdd = new Button("Añadir a Mis Servidores");
+        btnAdd.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 11px;");
+        btnAdd.setOnAction(e -> {
+            // Lógica para añadir (crear carpeta simple)
+            initiateServerCreation(displayIp.replace(".", "_"), 2); // Simplificado
+        });
+
+        card.getChildren().addAll(icon, lblIp, lblStatus, new Region() {{ VBox.setVgrow(this, Priority.ALWAYS); }}, btnAdd);
+
+        // Botón de Favorito (Estrella)
+        ToggleButton btnFav = new ToggleButton("★");
+        boolean isFav = favoriteServers.contains(displayIp);
+        btnFav.setSelected(isFav);
+        btnFav.setStyle("-fx-background-color: transparent; -fx-text-fill: " + (isFav ? "gold" : "#555") + "; -fx-font-size: 20px; -fx-cursor: hand; -fx-padding: 0;");
+        
+        btnFav.setOnAction(e -> {
+            if (btnFav.isSelected()) {
+                if (!favoriteServers.contains(displayIp)) favoriteServers.add(displayIp);
+                btnFav.setStyle("-fx-background-color: transparent; -fx-text-fill: gold; -fx-font-size: 20px; -fx-cursor: hand; -fx-padding: 0;");
+            } else {
+                favoriteServers.remove(displayIp);
+                btnFav.setStyle("-fx-background-color: transparent; -fx-text-fill: #555; -fx-font-size: 20px; -fx-cursor: hand; -fx-padding: 0;");
+            }
+            saveFavorites();
+        });
+        
+        StackPane.setAlignment(btnFav, Pos.TOP_RIGHT);
+        StackPane.setMargin(btnFav, new Insets(5));
+        cardContainer.getChildren().addAll(card, btnFav);
+
+        // Fetch info
+        executor.submit(() -> {
+            try {
+                String json = fetchJson("https://api.mcsrvstat.us/2/" + pingIp);
+                JsonObject obj = gson.fromJson(json, JsonObject.class);
+                boolean online = obj.get("online").getAsBoolean();
+                Platform.runLater(() -> {
+                    if (online) {
+                        lblStatus.setText("Online: " + obj.getAsJsonObject("players").get("online").getAsInt() + " jugadores");
+                        lblStatus.setStyle("-fx-text-fill: #00ff00;");
+                        try { icon.setImage(new Image("https://api.mcsrvstat.us/icon/" + pingIp)); } catch(Exception ex){}
+                    } else lblStatus.setText("Offline");
+                });
+            } catch (Exception e) {
+                 Platform.runLater(() -> {
+                    lblStatus.setText("Offline");
+                    lblStatus.setStyle("-fx-text-fill: #ff6b6b;");
+                 });
+            }
+        });
+        return cardContainer;
     }
 
     // --- GESTIÓN DE SERVIDORES ---
@@ -307,8 +562,13 @@ public class ServersView {
         Button btnManage = new Button("Gestionar");
         btnManage.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-font-weight: bold;");
         btnManage.setOnAction(e -> openServerDashboard(serverDir));
+        
+        Button btnDelete = new Button("🗑");
+        btnDelete.setTooltip(new Tooltip("Eliminar Servidor"));
+        btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnDelete.setOnAction(e -> confirmDeleteServer(serverDir));
 
-        card.getChildren().addAll(icon, info, btnManage);
+        card.getChildren().addAll(icon, info, btnManage, btnDelete);
         return card;
     }
 
@@ -320,7 +580,14 @@ public class ServersView {
         VBox dashboard = new VBox(20);
         dashboard.setPadding(new Insets(10));
 
+        // [NUEVO] Animación de entrada
+        dashboard.setOpacity(0);
+        FadeTransition ft = new FadeTransition(Duration.millis(400), dashboard);
+        ft.setFromValue(0); ft.setToValue(1);
+        ft.play();
+
         // Header
+        // --- HEADER ---
         HBox header = new HBox(15);
         header.setAlignment(Pos.CENTER_LEFT);
         Button btnBack = new Button("⬅ Volver");
@@ -328,7 +595,7 @@ public class ServersView {
         btnBack.setOnAction(e -> { refreshMyServersList(); contentPanel.getChildren().setAll(createMyServersView()); });
         
         Label title = new Label("Gestionando: " + serverName);
-        title.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold; -fx-font-family: 'Minecraft', 'Segoe UI', sans-serif;");
         
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -336,35 +603,139 @@ public class ServersView {
         Button btnStartServer = new Button("▶ Iniciar Servidor");
         btnStartServer.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 15; -fx-background-radius: 5;");
         btnStartServer.setOnAction(e -> startServer(serverDir));
+        header.setPadding(new Insets(0, 0, 20, 0));
 
         header.getChildren().addAll(btnBack, title, spacer, btnStartServer);
 
         TabPane tabs = new TabPane();
-        tabs.setStyle("-fx-background-color: transparent;");
+        tabs.setStyle("-fx-background-color: transparent; -fx-tab-min-width: 100px;");
+        tabs.getStylesheets().add("data:text/css,.tab-pane .tab-header-area .tab-header-background { -fx-background-color: transparent; } .tab { -fx-background-color: #333; -fx-text-fill: white; -fx-background-radius: 5 5 0 0; } .tab:selected { -fx-background-color: #0078d7; } .tab-label { -fx-text-fill: white; -fx-font-weight: bold; }");
 
-        // --- TAB 1: GENERAL (Editar Info) ---
+        // --- TAB 1: AJUSTES DEL SERVIDOR (Antes General) ---
         VBox generalTab = new VBox(15);
         generalTab.setPadding(new Insets(20));
 
-        TextField txtName = new TextField(serverName);
-        txtName.setPromptText("Nombre del Servidor");
-        
         // Editor de MOTD con colores
         Label lblMotd = new Label("Descripción (MOTD) - Usa los botones para colores:");
         lblMotd.setStyle("-fx-text-fill: #ccc;");
         TextArea txtMotd = new TextArea();
+        txtMotd.setStyle("-fx-control-inner-background: #222; -fx-text-fill: white; -fx-font-family: 'Minecraft', 'Monospaced';");
         Properties props = loadServerProperties(serverDir);
         txtMotd.setText(props.getProperty("motd", "A Minecraft Server"));
         
         FlowPane colorPalette = createColorPalette(txtMotd);
 
-        // --- AJUSTES DE JUEGO (Dificultad, Gamemode, Max Players) ---
-        Label lblGameSettings = new Label("Ajustes del Juego");
-        lblGameSettings.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 10 0 5 0;");
+        // --- CONFIGURACIÓN BÁSICA (Nombre, IP, Puerto, Icono) ---
+        GridPane configGrid = new GridPane();
+        configGrid.setHgap(15); configGrid.setVgap(15);
+        
+        TextField txtName = new TextField(serverName);
+        txtName.setPromptText("Nombre del Servidor");
+        styleField(txtName);
+        
+        // [NUEVO] Campo para Dominio Personalizado (Visual)
+        String defaultDomain = serverName.toLowerCase().replaceAll("[^a-z0-9]", "") + ".glauncher.servers";
+        String publicDomain = meta.has("public_domain") && !meta.get("public_domain").getAsString().isEmpty() 
+                              ? meta.get("public_domain").getAsString() : defaultDomain;
+        TextField txtDomain = new TextField(publicDomain);
+        txtDomain.setPromptText("Dominio (ej: mc.tuserver.com)");
+        txtDomain.setTooltip(new Tooltip("El dominio que compartirás con los jugadores.\nNota: Debes configurar los registros DNS (Tipo A) en tu proveedor de dominio apuntando a tu IP pública."));
+        styleField(txtDomain);
+
+        TextField txtIp = new TextField(props.getProperty("server-ip", ""));
+        txtIp.setPromptText("IP Local (Bind) - Dejar vacío recomendado");
+        txtIp.setTooltip(new Tooltip("IP interna de tu PC donde escuchará el servidor.\nDéjalo vacío para aceptar conexiones desde cualquier tarjeta de red (0.0.0.0)."));
+        styleField(txtIp);
+
+        TextField txtPort = new TextField(props.getProperty("server-port", "25565"));
+        txtPort.setPromptText("Puerto (25565)");
+        txtPort.setTooltip(new Tooltip("Puerto de conexión (Default: 25565)"));
+        styleField(txtPort);
+        txtPort.setMaxWidth(100);
+
+        // Icono del Servidor
+        ImageView serverIconView = new ImageView();
+        serverIconView.setFitWidth(64); serverIconView.setFitHeight(64);
+        File iconFile = new File(serverDir, "server-icon.png");
+        if (iconFile.exists()) serverIconView.setImage(new Image(iconFile.toURI().toString()));
+        else serverIconView.setImage(new Image("https://assets.ppy.sh/beatmaps/12345/covers/list.jpg")); // Placeholder
+
+        Button btnChangeIcon = new Button("Cambiar Icono");
+        btnChangeIcon.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand;");
+        btnChangeIcon.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Imágenes", "*.png", "*.jpg"));
+            File f = fc.showOpenDialog(null);
+            if (f != null) {
+                try {
+                    // Redimensionar a 64x64 y guardar como PNG
+                    java.awt.image.BufferedImage original = ImageIO.read(f);
+                    java.awt.image.BufferedImage resized = new java.awt.image.BufferedImage(64, 64, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                    Graphics2D g = resized.createGraphics();
+                    g.drawImage(original, 0, 0, 64, 64, null);
+                    g.dispose();
+                    ImageIO.write(resized, "png", new File(serverDir, "server-icon.png"));
+                    serverIconView.setImage(new Image(new File(serverDir, "server-icon.png").toURI().toString()));
+                    MainView.showNotification("Icono", "Icono actualizado.", "success");
+                } catch (Exception ex) { ex.printStackTrace(); }
+            }
+        });
+
+        // [MEJORA] Etiquetas con fuente de Minecraft
+        Label lblNameField = new Label("Nombre:"); lblNameField.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+        Label lblDomainField = new Label("Dominio:"); lblDomainField.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+        Label lblIpField = new Label("IP (Bind):"); lblIpField.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+        Label lblPortField = new Label("Puerto:"); lblPortField.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+        Label lblIconField = new Label("Icono:"); lblIconField.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+
+        Button btnCopyDomain = new Button("📋");
+        btnCopyDomain.setTooltip(new Tooltip("Copiar Dominio"));
+        btnCopyDomain.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand;");
+        btnCopyDomain.setOnAction(e -> {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(txtDomain.getText());
+            Clipboard.getSystemClipboard().setContent(content);
+            MainView.showNotification("Copiado", "Dominio copiado al portapapeles", "success");
+        });
+
+        configGrid.add(lblNameField, 0, 0); configGrid.add(txtName, 1, 0);
+        configGrid.add(lblDomainField, 0, 1); configGrid.add(new HBox(5, txtDomain, btnCopyDomain), 1, 1);
+        configGrid.add(lblIpField, 0, 2); configGrid.add(txtIp, 1, 2);
+        configGrid.add(lblPortField, 2, 2); configGrid.add(txtPort, 3, 2);
+        configGrid.add(lblIconField, 0, 3); configGrid.add(new HBox(10, serverIconView, btnChangeIcon), 1, 3);
+
+        Button btnSaveGeneral = new Button("Guardar Cambios");
+        btnSaveGeneral.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
+        btnSaveGeneral.setOnAction(e -> {
+            meta.addProperty("name", txtName.getText());
+            meta.addProperty("public_domain", txtDomain.getText()); // Guardar dominio visual
+            saveServerMetadata(serverDir, meta);
+            
+            props.setProperty("motd", txtMotd.getText());
+            props.setProperty("server-ip", txtIp.getText());
+            props.setProperty("server-port", txtPort.getText());
+            saveServerProperties(serverDir, props);
+            
+            MainView.showNotification("Guardado", "Configuración actualizada.", "success");
+        });
+
+        generalTab.getChildren().addAll(configGrid, new Separator(), lblMotd, colorPalette, txtMotd, new Separator(), btnSaveGeneral);
+        Tab t1 = new Tab("Ajustes del Servidor", generalTab); t1.setClosable(false);
+
+        // --- TAB 2: OPCIONES DE JUEGO (Nueva) ---
+        VBox gameOptionsTab = new VBox(15);
+        gameOptionsTab.setPadding(new Insets(20));
+        ScrollPane gameScroll = new ScrollPane(gameOptionsTab);
+        gameScroll.setFitToWidth(true);
+        gameScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
+        Label lblGameOpts = new Label("Configuración del Mundo");
+        lblGameOpts.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-font-family: 'Minecraft';");
 
         GridPane gameGrid = new GridPane();
-        gameGrid.setHgap(15); gameGrid.setVgap(10);
+        gameGrid.setHgap(15); gameGrid.setVgap(15);
 
+        // Controles de Juego
         ComboBox<String> cmbDifficulty = new ComboBox<>();
         cmbDifficulty.getItems().addAll("peaceful", "easy", "normal", "hard");
         cmbDifficulty.setValue(props.getProperty("difficulty", "normal"));
@@ -376,45 +747,92 @@ public class ServersView {
         cmbGamemode.setStyle("-fx-base: #333; -fx-text-fill: white;");
 
         TextField txtMaxPlayers = new TextField(props.getProperty("max-players", "20"));
-        txtMaxPlayers.setStyle("-fx-background-color: #333; -fx-text-fill: white;");
-        txtMaxPlayers.setPrefWidth(80);
+        styleField(txtMaxPlayers);
+        txtMaxPlayers.setMaxWidth(80);
 
-        CheckBox chkPvp = new CheckBox("PvP");
+        TextField txtSeed = new TextField(props.getProperty("level-seed", ""));
+        txtSeed.setPromptText("Semilla del mundo (Opcional)");
+        styleField(txtSeed);
+
+        // Checkboxes
+        CheckBox chkPvp = new CheckBox("PvP (Fuego Amigo)");
         chkPvp.setSelected(Boolean.parseBoolean(props.getProperty("pvp", "true")));
         chkPvp.setStyle("-fx-text-fill: white;");
+
+        CheckBox chkHardcore = new CheckBox("Hardcore");
+        chkHardcore.setSelected(Boolean.parseBoolean(props.getProperty("hardcore", "false")));
+        chkHardcore.setStyle("-fx-text-fill: white;");
+
+        CheckBox chkCmdBlock = new CheckBox("Bloques de Comandos");
+        chkCmdBlock.setSelected(Boolean.parseBoolean(props.getProperty("enable-command-block", "true")));
+        chkCmdBlock.setStyle("-fx-text-fill: white;");
+
+        CheckBox chkFlight = new CheckBox("Permitir Vuelo");
+        chkFlight.setSelected(Boolean.parseBoolean(props.getProperty("allow-flight", "false")));
+        chkFlight.setStyle("-fx-text-fill: white;");
+
+        CheckBox chkMonsters = new CheckBox("Monstruos");
+        chkMonsters.setSelected(Boolean.parseBoolean(props.getProperty("spawn-monsters", "true")));
+        chkMonsters.setStyle("-fx-text-fill: white;");
+
+        CheckBox chkAnimals = new CheckBox("Animales");
+        chkAnimals.setSelected(Boolean.parseBoolean(props.getProperty("spawn-animals", "true")));
+        chkAnimals.setStyle("-fx-text-fill: white;");
+
+        CheckBox chkNpcs = new CheckBox("Aldeanos (NPCs)");
+        chkNpcs.setSelected(Boolean.parseBoolean(props.getProperty("spawn-npcs", "true")));
+        chkNpcs.setStyle("-fx-text-fill: white;");
+
+        CheckBox chkStructures = new CheckBox("Generar Estructuras");
+        chkStructures.setSelected(Boolean.parseBoolean(props.getProperty("generate-structures", "true")));
+        chkStructures.setStyle("-fx-text-fill: white;");
 
         CheckBox chkCooldown = new CheckBox("Cooldown de Ataque (1.9+)");
         chkCooldown.setSelected(meta.has("attack_cooldown") ? meta.get("attack_cooldown").getAsBoolean() : true);
         chkCooldown.setStyle("-fx-text-fill: white;");
 
-        gameGrid.add(new Label("Dificultad:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 0);
-        gameGrid.add(cmbDifficulty, 1, 0);
-        gameGrid.add(new Label("Modo de Juego:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 0, 1);
-        gameGrid.add(cmbGamemode, 1, 1);
-        gameGrid.add(new Label("Máx. Jugadores:") {{ setStyle("-fx-text-fill: #ccc;"); }}, 2, 0);
-        gameGrid.add(txtMaxPlayers, 3, 0);
-        gameGrid.add(chkPvp, 2, 1);
-        gameGrid.add(chkCooldown, 3, 1);
+        // Layout Grid
+        Label lblDiff = new Label("Dificultad:"); lblDiff.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+        Label lblMode = new Label("Modo:"); lblMode.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+        Label lblMax = new Label("Máx. Jugadores:"); lblMax.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
+        Label lblSeed = new Label("Semilla:"); lblSeed.setStyle("-fx-text-fill: #ccc; -fx-font-family: 'Minecraft';");
 
-        Button btnSaveGeneral = new Button("Guardar Cambios");
-        btnSaveGeneral.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
-        btnSaveGeneral.setOnAction(e -> {
-            meta.addProperty("name", txtName.getText());
-            saveServerMetadata(serverDir, meta);
-            
-            meta.addProperty("attack_cooldown", chkCooldown.isSelected());
-            props.setProperty("motd", txtMotd.getText());
+        gameGrid.add(lblDiff, 0, 0); gameGrid.add(cmbDifficulty, 1, 0);
+        gameGrid.add(lblMode, 0, 1); gameGrid.add(cmbGamemode, 1, 1);
+        gameGrid.add(lblMax, 2, 0); gameGrid.add(txtMaxPlayers, 3, 0);
+        gameGrid.add(lblSeed, 2, 1); gameGrid.add(txtSeed, 3, 1);
+
+        gameGrid.add(chkPvp, 0, 2); gameGrid.add(chkHardcore, 1, 2);
+        gameGrid.add(chkCmdBlock, 0, 3); gameGrid.add(chkFlight, 1, 3);
+        gameGrid.add(chkMonsters, 0, 4); gameGrid.add(chkAnimals, 1, 4);
+        gameGrid.add(chkNpcs, 0, 5); gameGrid.add(chkStructures, 1, 5);
+        gameGrid.add(chkCooldown, 0, 6);
+
+        Button btnSaveGame = new Button("Guardar Opciones");
+        btnSaveGame.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
+        btnSaveGame.setOnAction(e -> {
             props.setProperty("difficulty", cmbDifficulty.getValue());
             props.setProperty("gamemode", cmbGamemode.getValue());
-            props.setProperty("max-players", txtMaxPlayers.getText());
+            props.setProperty("hardcore", String.valueOf(chkHardcore.isSelected()));
             props.setProperty("pvp", String.valueOf(chkPvp.isSelected()));
+            props.setProperty("enable-command-block", String.valueOf(chkCmdBlock.isSelected()));
+            props.setProperty("allow-flight", String.valueOf(chkFlight.isSelected()));
+            props.setProperty("spawn-monsters", String.valueOf(chkMonsters.isSelected()));
+            props.setProperty("spawn-animals", String.valueOf(chkAnimals.isSelected()));
+            props.setProperty("spawn-npcs", String.valueOf(chkNpcs.isSelected()));
+            props.setProperty("generate-structures", String.valueOf(chkStructures.isSelected()));
+            props.setProperty("level-seed", txtSeed.getText());
+            props.setProperty("max-players", txtMaxPlayers.getText());
+            
+            meta.addProperty("attack_cooldown", chkCooldown.isSelected());
+            saveServerMetadata(serverDir, meta);
             saveServerProperties(serverDir, props);
             
-            MainView.showNotification("Guardado", "Configuración actualizada.", "success");
+            MainView.showNotification("Guardado", "Opciones de juego actualizadas.", "success");
         });
 
-        generalTab.getChildren().addAll(new Label("Nombre:"), txtName, lblMotd, colorPalette, txtMotd, lblGameSettings, gameGrid, new Separator(), btnSaveGeneral);
-        Tab t1 = new Tab("General", generalTab); t1.setClosable(false);
+        gameOptionsTab.getChildren().addAll(lblGameOpts, gameGrid, new Separator(), btnSaveGame);
+        Tab tGame = new Tab("Opciones de Juego", gameScroll); tGame.setClosable(false);
 
         // --- TAB 2: MODS Y RECURSOS (Unificado) ---
         Tab tModsResources = new Tab("Mods y Recursos", createModsResourcesView(serverDir, serverType));
@@ -437,6 +855,22 @@ public class ServersView {
         playerListsBox.getChildren().addAll(opsBox, banBox);
         playersTab.getChildren().addAll(playerListsBox);
         Tab t4 = new Tab("Jugadores", playersTab); t4.setClosable(false);
+
+        // --- TAB 5: COMPATIBILIDAD (ViaVersion) ---
+        VBox compatTab = new VBox(15);
+        compatTab.setPadding(new Insets(20));
+        
+        Label lblCompat = new Label("Compatibilidad de Versiones");
+        lblCompat.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+        Label lblCompatInfo = new Label("Permite que jugadores con versiones más nuevas o antiguas entren a tu servidor.");
+        lblCompatInfo.setStyle("-fx-text-fill: #aaa;");
+
+        Button btnInstallVia = new Button("Instalar ViaVersion (Nuevas -> Viejas)");
+        btnInstallVia.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 10 20;");
+        btnInstallVia.setOnAction(e -> installViaVersion(serverDir, serverType));
+
+        compatTab.getChildren().addAll(lblCompat, lblCompatInfo, btnInstallVia);
+        Tab tCompat = new Tab("Compatibilidad", compatTab); tCompat.setClosable(false);
         
         // --- TAB 5: BACKUPS ---
         VBox backupTab = new VBox(15);
@@ -453,10 +887,14 @@ public class ServersView {
         backupTab.getChildren().addAll(new Label("Copias de Seguridad") {{ setStyle("-fx-text-fill: white; -fx-font-size: 18px;"); }}, btnCreateBackup, backupList);
         Tab t5 = new Tab("Backups", backupTab); t5.setClosable(false);
 
-        tabs.getTabs().addAll(t1, tModsResources, t4, t5);
+        tabs.getTabs().addAll(t1, tGame, tModsResources, tCompat, t4, t5);
         dashboard.getChildren().addAll(header, tabs);
         
         contentPanel.getChildren().setAll(dashboard);
+    }
+
+    private void styleField(TextField tf) {
+        tf.setStyle("-fx-background-color: #222; -fx-text-fill: white; -fx-background-radius: 3; -fx-border-color: #555; -fx-border-width: 1; -fx-padding: 8; -fx-font-family: 'Minecraft', 'Segoe UI', sans-serif;");
     }
 
     private Node createModsResourcesView(File serverDir, String serverType) {
@@ -538,12 +976,27 @@ public class ServersView {
                     setText(item.getName() + " (" + size + ")");
                     setStyle("-fx-text-fill: white; -fx-background-color: transparent;");
                     
+                    boolean isDisabled = item.getName().endsWith(".disabled");
+                    if (isDisabled) setStyle("-fx-text-fill: #777; -fx-background-color: transparent;");
+
                     ContextMenu cm = new ContextMenu();
+                    
+                    MenuItem toggle = new MenuItem(isDisabled ? "Habilitar" : "Deshabilitar");
+                    toggle.setOnAction(e -> {
+                        String newName = isDisabled ? item.getName().replace(".disabled", "") : item.getName() + ".disabled";
+                        File newFile = new File(item.getParent(), newName);
+                        item.renameTo(newFile);
+                        refreshFileList(list, dir, searchField.getText());
+                    });
+
                     MenuItem delete = new MenuItem("Eliminar");
                     delete.setOnAction(e -> {
                         item.delete();
-                        refreshFileList(list, dir);
+                        refreshFileList(list, dir, searchField.getText());
                     });
+                    
+                    cm.getItems().add(toggle);
+                    cm.getItems().add(new SeparatorMenuItem());
                     cm.getItems().add(delete);
                     setContextMenu(cm);
                 }
@@ -552,7 +1005,6 @@ public class ServersView {
         
         Runnable refresh = () -> refreshFileList(list, dir, searchField.getText());
         searchField.textProperty().addListener((obs, old, val) -> refresh.run());
-        refresh.run();
         
         return list;
     }
@@ -737,7 +1189,7 @@ public class ServersView {
                      facets = String.format("[[\"categories:bukkit\"],[\"versions:%s\"]]", version); // Modrinth usa 'bukkit' para plugins
                 }
                 
-                String url = "https://api.modrinth.com/v2/search?query=" + java.net.URLEncoder.encode(query, "UTF-8") + "&facets=" + java.net.URLEncoder.encode(facets, "UTF-8");
+                String url = "https://api.modrinth.com/v2/search?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8) + "&facets=" + URLEncoder.encode(facets, StandardCharsets.UTF_8);
                 String json = fetchJson(url);
                 
                 JsonObject response = gson.fromJson(json, JsonObject.class);
@@ -833,6 +1285,31 @@ public class ServersView {
         desc.setStyle("-fx-text-fill: #ccc; -fx-font-size: 14px;");
         desc.setWrapText(true);
 
+        // Lista de versiones compatibles
+        Label lblVers = new Label("Versiones Compatibles:");
+        lblVers.setStyle("-fx-text-fill: #aaa; -fx-font-weight: bold;");
+        
+        ListView<String> versionsList = new ListView<>();
+        versionsList.setPrefHeight(150);
+        versionsList.setStyle("-fx-background-color: #111;");
+        
+        // Cargar versiones en segundo plano
+        executor.submit(() -> {
+            try {
+                String url = "https://api.modrinth.com/v2/project/" + mod.get("slug").getAsString() + "/version";
+                String json = fetchJson(url);
+                JsonArray versions = gson.fromJson(json, JsonArray.class);
+                Platform.runLater(() -> {
+                    for(JsonElement v : versions) {
+                        JsonObject vo = v.getAsJsonObject();
+                        String name = vo.get("name").getAsString();
+                        String gameVers = vo.get("game_versions").toString();
+                        versionsList.getItems().add(name + " - " + gameVers);
+                    }
+                });
+            } catch(Exception e) {}
+        });
+
         Button btnInstall = new Button("Instalar Versión Compatible");
         btnInstall.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 10 20;");
         btnInstall.setOnAction(e -> {
@@ -844,7 +1321,7 @@ public class ServersView {
         btnClose.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
         btnClose.setOnAction(e -> modDetailsOverlay.setVisible(false));
 
-        container.getChildren().addAll(title, desc, new Separator(), btnInstall, new Region() {{ VBox.setVgrow(this, Priority.ALWAYS); }}, btnClose);
+        container.getChildren().addAll(title, desc, lblVers, versionsList, new Separator(), btnInstall, new Region() {{ VBox.setVgrow(this, Priority.ALWAYS); }}, btnClose);
         modDetailsOverlay.getChildren().add(container);
     }
 
@@ -858,10 +1335,11 @@ public class ServersView {
                 // Obtener versiones del proyecto
                 String loadersParam = "";
                 if (projectType.equals("mod")) {
-                    loadersParam = "&loaders=[\"" + (loader.equals("paper") ? "bukkit" : loader) + "\"]";
+                    loadersParam = "&loaders=" + URLEncoder.encode("[\"" + (loader.equals("paper") ? "bukkit" : loader) + "\"]", StandardCharsets.UTF_8);
                 }
                 
-                String verUrl = "https://api.modrinth.com/v2/project/" + slug + "/version?game_versions=[\"" + version + "\"]" + loadersParam;
+                String gameVersions = URLEncoder.encode("[\"" + version + "\"]", StandardCharsets.UTF_8);
+                String verUrl = "https://api.modrinth.com/v2/project/" + slug + "/version?game_versions=" + gameVersions + loadersParam;
                 String json = fetchJson(verUrl);
                 JsonArray versions = gson.fromJson(json, JsonArray.class);
                 
@@ -971,7 +1449,7 @@ public class ServersView {
     private void refreshFileList(ListView<File> list, File dir, String filter) {
         list.getItems().clear();
         if (dir.exists()) {
-            File[] files = dir.listFiles((d, name) -> name.endsWith(".jar"));
+            File[] files = dir.listFiles((d, name) -> name.endsWith(".jar") || name.endsWith(".disabled") || name.endsWith(".zip"));
             if (files != null) {
                 for (File f : files) {
                     if (filter == null || filter.isEmpty() || f.getName().toLowerCase().contains(filter.toLowerCase())) {
@@ -1039,16 +1517,25 @@ public class ServersView {
             if (os.contains("win")) {
                 File bat = new File(serverDir, "start.bat");
                 if (bat.exists()) {
-                    Runtime.getRuntime().exec("cmd /c start start.bat", null, serverDir);
+                    // [FIX] Usar ProcessBuilder para asegurar que se abra la ventana de comandos
+                    new ProcessBuilder("cmd", "/c", "start", "Minecraft Server", "start.bat")
+                        .directory(serverDir)
+                        .start();
                 } else {
                     MainView.showNotification("Error", "No se encontró start.bat", "error");
                 }
             } else {
                 File sh = new File(serverDir, "start.sh");
-                if (sh.exists() && Desktop.isDesktopSupported()) Desktop.getDesktop().open(sh);
+                if (sh.exists()) {
+                    // Intentar ejecutar en terminal de Linux
+                    new ProcessBuilder("x-terminal-emulator", "-e", "./start.sh")
+                        .directory(serverDir)
+                        .start();
+                }
             }
         } catch (Exception e) {
             MainView.showNotification("Error", "No se pudo iniciar el servidor: " + e.getMessage(), "error");
+            e.printStackTrace();
         }
     }
 
@@ -1114,7 +1601,7 @@ public class ServersView {
         
         ListView<String> list = new ListView<>();
         for (JsonObject u : updates) {
-            String newName = u.getAsJsonObject("files").get("filename").getAsString();
+            String newName = u.getAsJsonArray("files").get(0).getAsJsonObject().get("filename").getAsString();
             File oldFile = new File(u.get("_localFile").getAsString());
             list.getItems().add(oldFile.getName() + "  ➜  " + newName);
         }
@@ -1128,8 +1615,8 @@ public class ServersView {
                     for (JsonObject u : updates) {
                         try {
                             new File(u.get("_localFile").getAsString()).delete();
-                            String url = u.getAsJsonObject("files").get("url").getAsString();
-                            downloadFile(url, new File(modsDir, u.getAsJsonObject("files").get("filename").getAsString()), null);
+                            String url = u.getAsJsonArray("files").get(0).getAsJsonObject().get("url").getAsString();
+                            downloadFile(url, new File(modsDir, u.getAsJsonArray("files").get(0).getAsJsonObject().get("filename").getAsString()), null);
                             count++;
                         } catch (Exception e) {}
                     }
@@ -1279,16 +1766,43 @@ public class ServersView {
                 createStartScript(serverDir, ram, fileName);
                 createEula(serverDir);
 
+                // Copiar icono si se seleccionó
+                if (creationIconFile != null && creationIconFile.exists()) {
+                    try {
+                        Files.copy(creationIconFile.toPath(), new File(serverDir, "server-icon.png").toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                }
+
+                // Instalar plugins seleccionados (Placeholder logic)
+                if (!pluginsToInstall.isEmpty()) {
+                    // Aquí iría la lógica real de descarga de plugins. Por ahora creamos archivos vacíos para indicar intención.
+                    File pluginsDir = new File(serverDir, "plugins");
+                    pluginsDir.mkdirs();
+                    for (String p : pluginsToInstall) {
+                        new File(pluginsDir, p + ".jar.placeholder").createNewFile();
+                    }
+                }
+
+                // Configurar server.properties inicial con IP
+                Properties props = new Properties();
+                props.setProperty("server-ip", "");
+                props.setProperty("server-port", "25565");
+                saveServerProperties(serverDir, props);
+
                 // Guardar metadatos iniciales
                 JsonObject meta = new JsonObject();
                 meta.addProperty("name", serverName);
                 meta.addProperty("type", serverType);
+                meta.addProperty("public_domain", serverName.toLowerCase().replaceAll("[^a-z0-9]", "") + ".glauncher.servers");
                 saveServerMetadata(serverDir, meta);
 
                 Platform.runLater(() -> {
                     progressOverlay.setVisible(false);
                     MainView.showNotification("Éxito", "Servidor creado en: " + serverDir.getName(), "success");
                 });
+                
+                // Resetear estado
+                creationIconFile = null;
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -1412,5 +1926,52 @@ public class ServersView {
             }
         } catch (Exception e) { }
         return new ImageView();
+    }
+
+    private void confirmDeleteServer(File serverDir) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Eliminar Servidor");
+        alert.setHeaderText("¿Estás seguro de eliminar este servidor?");
+        alert.setContentText("Esta acción no se puede deshacer. Se perderán todos los datos del mundo y configuraciones.");
+        
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                deleteDirectory(serverDir);
+                refreshMyServersList();
+                MainView.showNotification("Eliminado", "Servidor eliminado correctamente.", "success");
+            }
+        });
+    }
+
+    private void deleteDirectory(File file) {
+        if (file.isDirectory()) {
+            File[] entries = file.listFiles();
+            if (entries != null) {
+                for (File entry : entries) {
+                    deleteDirectory(entry);
+                }
+            }
+        }
+        file.delete();
+    }
+    
+    private void showAddServerDialog() {
+        // Placeholder para mantener compatibilidad si se llama desde otro lado
+        // Idealmente redirigiría a la vista de creación
+    }
+
+    private void loadFavorites() {
+        if (FAVORITES_FILE.exists()) {
+            try (FileReader reader = new FileReader(FAVORITES_FILE)) {
+                List<String> loaded = gson.fromJson(reader, new TypeToken<List<String>>(){}.getType());
+                if (loaded != null) favoriteServers = loaded;
+            } catch (Exception e) { e.printStackTrace(); }
+        }
+    }
+
+    private void saveFavorites() {
+        try (FileWriter writer = new FileWriter(FAVORITES_FILE)) {
+            gson.toJson(favoriteServers, writer);
+        } catch (IOException e) { e.printStackTrace(); }
     }
 }

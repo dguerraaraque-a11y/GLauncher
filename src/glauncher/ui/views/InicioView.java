@@ -13,6 +13,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextArea;
@@ -27,30 +28,39 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Priority;
+import javafx.scene.text.Font;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.web.WebView;
 import javafx.util.Duration;
 import java.io.BufferedReader;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.awt.Desktop;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.lang.management.ManagementFactory;
 import glauncher.MainView;
 
 public class InicioView {
@@ -67,6 +77,10 @@ public class InicioView {
     private Label lblUser;
     private Circle avatar;
     private long lastSessionModified = 0;
+    
+    // [FIX] Singleton para mantener el estado de la vista (Perfil, Consola, etc.)
+    private static InicioView instance;
+    private StackPane root;
 
     // [FIX] SSL Handshake fix for old Java 8 / Forge Maven
     // This globally disables SSL certificate validation.
@@ -96,9 +110,28 @@ public class InicioView {
     }
 
     public Parent getView() {
-        StackPane root = new StackPane();
+        if (instance != null) {
+            instance.updateUserInfo(); // Actualizar info si cambió (ej. login)
+            return instance.root;
+        }
+        instance = this;
+
+        root = new StackPane();
         // [FIX] Fondo transparente para que se vea el fondo global
         root.setStyle("-fx-background-color: transparent;");
+        
+        // [NUEVO] Estilos globales personalizados (CSS) para componentes por defecto
+        root.getStylesheets().add("data:text/css," + 
+            ".scroll-bar{ -fx-background-color: transparent; }" +
+            ".scroll-bar .track{ -fx-background-color: transparent; }" +
+            ".scroll-bar .thumb{ -fx-background-color: #444; -fx-background-radius: 5; }" +
+            ".scroll-bar .thumb:hover{ -fx-background-color: #666; }" +
+            ".combo-box-popup .list-view{ -fx-background-color: #222; -fx-border-color: #444; }" +
+            ".combo-box-popup .list-cell{ -fx-text-fill: white; -fx-background-color: transparent; }" +
+            ".combo-box-popup .list-cell:filled:hover{ -fx-background-color: #333; }" +
+            ".combo-box-popup .list-cell:filled:selected{ -fx-background-color: #0078d7; }" +
+            ".tooltip{ -fx-background-color: #222; -fx-text-fill: white; -fx-border-color: #555; -fx-border-radius: 5; -fx-background-radius: 5; -fx-font-size: 12px; }"
+        );
         
         BorderPane layout = new BorderPane();
         layout.setPadding(new Insets(0)); // Sin padding externo para que la barra lateral ocupe todo el alto
@@ -147,6 +180,9 @@ public class InicioView {
         userWidget.getChildren().addAll(userHeader, lblRank);
         updateUserInfo();
 
+        // [NUEVO] Comprobar si se debe mostrar el asistente de optimización
+        checkAndPromptForLowSpecMode();
+
         // --- CENTRO (Logo y Play) ---
         VBox centerArea = new VBox(30);
         centerArea.setAlignment(Pos.CENTER);
@@ -155,7 +191,19 @@ public class InicioView {
         VBox.setVgrow(spacerTop, Priority.ALWAYS);
 
         Label title = new Label("GLAUNCHER");
-        title.setStyle("-fx-text-fill: white; -fx-font-size: 70px; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, cyan, 25, 0.5, 0, 0); -fx-font-family: 'Segoe UI Black', Impact, sans-serif;");
+        // [FIX] Color morado (#A020F0) y fuente por defecto por si falla la carga
+        title.setStyle("-fx-text-fill: #A020F0; -fx-font-size: 70px; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, cyan, 25, 0.5, 0, 0); -fx-font-family: 'Segoe UI Black', Impact, sans-serif;");
+
+        // [NUEVO] Aplicar fuente Minecraft al título
+        try {
+            String fontUrl = resolveAssetPath("assets/fonts/font.ttf");
+            Font minecraftTitleFont = Font.loadFont(fontUrl, 70);
+            if (minecraftTitleFont != null) {
+                title.setFont(minecraftTitleFont);
+                // Actualizar estilo para usar la fuente cargada y mantener el color morado
+                title.setStyle("-fx-text-fill: #A020F0; -fx-effect: dropshadow(three-pass-box, cyan, 25, 0.5, 0, 0);");
+            }
+        } catch (Exception e) { }
 
         // Área de Juego (Barra inferior)
         HBox playArea = new HBox(20); // [MEJORA] Más espacio entre elementos
@@ -200,6 +248,16 @@ public class InicioView {
                               "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.6), 5, 0, 0, 2);";
         
         btnPlay.setStyle(defaultStyle);
+        
+        // [NUEVO] Cargar fuente de Minecraft para el botón JUGAR
+        try {
+            // Intentar cargar la fuente desde assets usando ruta robusta
+            String fontUrl = resolveAssetPath("assets/fonts/font.ttf");
+            Font minecraftFont = Font.loadFont(fontUrl, 24);
+            if (minecraftFont != null) {
+                btnPlay.setFont(minecraftFont);
+            }
+        } catch (Exception e) { System.out.println("Error cargando fuente: " + e.getMessage()); }
         
         // Animación RGB en el borde del botón Play
         Timeline rgbPlay = new Timeline(
@@ -254,7 +312,7 @@ public class InicioView {
         HBox socialBox = new HBox(15);
         socialBox.setAlignment(Pos.CENTER);
         
-        Button btnDiscord = createSocialButton("Discord", "#7289da", "https://discord.gg/tu-invitacion");
+        Button btnDiscord = createSocialButton("Discord", "#7289da", "https://discord.com/invite/b4mtjNcCCV");
         Button btnYoutube = createSocialButton("YouTube", "#ff0000", "https://youtube.com/@DaniCraftYT25");
         Button btnWeb = createSocialButton("Sitio Web", "#0078d7", "https://glauncher.vercel.app");
         
@@ -288,7 +346,6 @@ public class InicioView {
         // Estilo terminal hacker bonito
         devConsoleOutput.setStyle("-fx-control-inner-background: #151515; -fx-text-fill: #00ff00; -fx-font-family: 'Consolas', 'Monospaced'; -fx-highlight-fill: #00ff00; -fx-highlight-text-fill: #000; -fx-background-radius: 10; -fx-border-color: #333; -fx-border-radius: 10;");
         VBox.setVgrow(devConsoleOutput, Priority.ALWAYS);
-        devConsole.getChildren().addAll(consoleTitle, devConsoleOutput);
         
         Button btnHideConsole = new Button("Ocultar Consola");
         btnHideConsole.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 20; -fx-padding: 10 20;");
@@ -300,6 +357,7 @@ public class InicioView {
             ft.play();
         });
 
+        devConsole.getChildren().clear(); // [FIX] Prevenir duplicados si se recarga la vista
         devConsole.getChildren().addAll(consoleClock, consoleTitle, devConsoleOutput, btnHideConsole);
         
         playArea.getChildren().addAll(versionSelector, btnPlay, btnRepair);
@@ -314,21 +372,6 @@ public class InicioView {
         rightWidgets.setAlignment(Pos.TOP_RIGHT);
         rightWidgets.setPrefWidth(280);
         
-        // Widget Estado del Servidor
-        VBox serverWidget = new VBox(10);
-        serverWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
-        Label serverTitle = new Label("Estado del Servidor");
-        serverTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
-        
-        HBox statusBox = new HBox(10);
-        statusBox.setAlignment(Pos.CENTER_LEFT);
-        Circle statusDot = new Circle(5, Color.LIMEGREEN);
-        Label statusText = new Label("Online - 34/100 Jugadores");
-        statusText.setStyle("-fx-text-fill: #ccc; -fx-font-size: 12px;");
-        statusBox.getChildren().addAll(statusDot, statusText);
-        
-        serverWidget.getChildren().addAll(serverTitle, statusBox);
-
         // Widget Sistema (RAM + Hora) - Movido a la derecha
         VBox sysWidget = new VBox(10);
         sysWidget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
@@ -355,8 +398,7 @@ public class InicioView {
             double used = (double)(total - free) / total;
             ramBar.setProgress(used);
             ramLabel.setText(String.format("RAM: %.0f%% Usada", used * 100));
-            lblTime.setText(java.time.LocalTime.now().toString().substring(0, 5));
-            updateUserInfo(); 
+            lblTime.setText(java.time.LocalTime.now().toString().substring(0, 5)); 
         }));
         ramUpdate.setCycleCount(Timeline.INDEFINITE);
         ramUpdate.play();
@@ -365,12 +407,22 @@ public class InicioView {
 
         // Widget de Música
         VBox musicWidget = createMusicWidget();
+
+        // [NUEVO] Widget de Discord
+        VBox discordWidget = createDiscordWidget();
         
-        rightWidgets.getChildren().addAll(serverWidget, sysWidget, musicWidget);
+        rightWidgets.getChildren().addAll(sysWidget, musicWidget, discordWidget);
+
+        // [MEJORA] ScrollPane para la barra derecha por si los widgets ocupan mucho espacio
+        ScrollPane rightScroll = new ScrollPane(rightWidgets);
+        rightScroll.setFitToWidth(true);
+        rightScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        rightScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        rightScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
         layout.setLeft(sidebar);
         layout.setCenter(centerArea);
-        layout.setRight(rightWidgets);
+        layout.setRight(rightScroll);
 
         // Añadir layout y consola al root (StackPane permite superposición)
         root.getChildren().addAll(layout, devConsole);
@@ -404,28 +456,44 @@ public class InicioView {
         controls.getChildren().addAll(btnPrev, btnPlay, btnNext);
         widget.getChildren().addAll(header, songTitle, controls);
         
-        // [GEMINI CODE ASSIST] La lógica anterior fue eliminada porque la clase MusicView
-        // ha sido rediseñada. Ya no es un controlador de música de fondo (Singleton),
-        // sino una vista completa con su propia interfaz.
-        // Este widget ya no puede controlar la música de esa manera.
-        songTitle.setText("Abre la pestaña de Música");
-        btnPrev.setDisable(true);
-        btnPlay.setDisable(true);
-        btnNext.setDisable(true);
+        // [FIX] Conectar con MusicView (Singleton) para hacer funcional el widget
+        Runnable connectMusic = () -> {
+            MusicView mv = MusicView.getInstance();
+            if (mv != null) {
+                if (mv.currentTitleProperty() != null) {
+                    songTitle.textProperty().bind(mv.currentTitleProperty());
+                }
+                btnPlay.setOnAction(e -> mv.togglePlayPause());
+                btnNext.setOnAction(e -> mv.playNext());
+                btnPrev.setOnAction(e -> mv.playPrevious());
+            } else {
+                songTitle.setText("Abre GMusic para iniciar");
+            }
+        };
+        
+        connectMusic.run();
+        // Reintentar conexión al pasar el mouse (por si MusicView se cargó después)
+        widget.setOnMouseEntered(e -> connectMusic.run());
         
         return widget;
     }
+
 
     // [NUEVO] Método auxiliar para cargar iconos fácilmente
     private ImageView loadIcon(String path, double size) {
         try {
             String resolved = resolveAssetPath(path);
-            ImageView iv = new ImageView(new Image(resolved));
+            Image image = new Image(resolved);
+            if (image.isError()) {
+                System.err.println("Error al cargar el icono (no encontrado o corrupto): " + path);
+                return null;
+            }
+            ImageView iv = new ImageView(image);
             iv.setFitWidth(size);
             iv.setFitHeight(size);
             iv.setPreserveRatio(true);
             return iv;
-        } catch (Exception e) { }
+        } catch (Exception e) { System.err.println("Error al cargar el icono: " + path); }
         return null;
     }
 
@@ -433,11 +501,11 @@ public class InicioView {
     private String resolveAssetPath(String path) {
         // 1. Intentar ruta directa (Entorno desarrollo / Portable)
         File f = new File(path);
-        if (f.exists()) return "file:" + f.getAbsolutePath();
+        if (f.exists()) return f.toURI().toString();
         
         // 2. Intentar ruta 'app' (Instalador EXE - Working Dir = Install Dir)
         File appAssets = new File("app" + File.separator + path);
-        if (appAssets.exists()) return "file:" + appAssets.getAbsolutePath();
+        if (appAssets.exists()) return appAssets.toURI().toString();
         
         // 3. Intentar ruta relativa al JAR (Lo más seguro para jpackage)
         try {
@@ -447,11 +515,11 @@ public class InicioView {
             
             if (jarDir != null) {
                 File siblingAssets = new File(jarDir, path);
-                if (siblingAssets.exists()) return "file:" + siblingAssets.getAbsolutePath();
+                if (siblingAssets.exists()) return siblingAssets.toURI().toString();
             }
         } catch (Exception e) { }
         
-        return "file:" + path; // Fallback
+        return new File(path).toURI().toString(); // Fallback
     }
 
     private List<String> getDownloadedVersions() {
@@ -506,6 +574,13 @@ public class InicioView {
                 String uuid = session.has("uuid") ? session.get("uuid").getAsString() : "0";
                 String token = session.has("token") ? session.get("token").getAsString() : "0";
                 String userType = session.has("type") && session.get("type").getAsString().equals("microsoft") ? "msa" : "mojang";
+
+                // [FIX] Generar un UUID offline válido si no existe uno para evitar que el juego lo rechace.
+                if (uuid == null || uuid.equals("0") || uuid.isEmpty()) {
+                    uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(StandardCharsets.UTF_8)).toString();
+                    final String finalUuid = uuid;
+                    Platform.runLater(() -> devConsoleOutput.appendText("INFO: No se encontró UUID de sesión. Generado UUID offline: " + finalUuid + "\n"));
+                }
 
                 File versionFolder = new File(VERSIONS_DIR, version);
                 File jsonFile = new File(versionFolder, version + ".json");
@@ -722,6 +797,21 @@ public class InicioView {
                 command.add("-Xmx" + (int)ram + "M");
                 
                 // Argumentos JVM Personalizados
+                // [NUEVO] Inyectar agente de skins si se ha seleccionado una skin personalizada
+                String customSkinPath = session.has("custom_skin_path") ? session.get("custom_skin_path").getAsString() : null;
+                if (customSkinPath != null && new File(customSkinPath).exists()) {
+                    File agentFile = new File(DATA_DIR, "agents/GLauncherSkinAgent.jar");
+                    if (agentFile.exists()) {
+                        command.add("-javaagent:" + agentFile.getAbsolutePath());
+                        command.add("-Dglauncher.skin.path=" + customSkinPath);
+                        String skinType = session.has("custom_skin_type") ? session.get("custom_skin_type").getAsString() : "default";
+                        command.add("-Dglauncher.skin.type=" + skinType);
+                        Platform.runLater(() -> devConsoleOutput.appendText("INFO: Inyectando agente de skin personalizada (" + skinType + ")...\n"));
+                    } else {
+                        Platform.runLater(() -> devConsoleOutput.appendText("ADVERTENCIA: No se encontró GLauncherSkinAgent.jar. La skin personalizada no se cargará.\n"));
+                    }
+                }
+
                 if (settings.has("jvmArgs")) {
                     String argsStr = settings.get("jvmArgs").getAsString();
                     if (!argsStr.isEmpty()) {
@@ -759,7 +849,7 @@ public class InicioView {
                     String mcArgs = versionJson.get("minecraftArguments").getAsString();
                     mcArgs = mcArgs.replace("${auth_player_name}", username);
                     mcArgs = mcArgs.replace("${version_name}", version);
-                    mcArgs = mcArgs.replace("${game_directory}", "\"" + DATA_DIR + "\"");
+                    mcArgs = mcArgs.replace("${game_directory}", "\"" + new File(DATA_DIR).getAbsolutePath() + "\"");
                     mcArgs = mcArgs.replace("${assets_root}", "\"" + new File(DATA_DIR, "assets").getAbsolutePath() + "\"");
                     String indexId = versionJson.has("assetIndex") ? versionJson.getAsJsonObject("assetIndex").get("id").getAsString() : version;
                     mcArgs = mcArgs.replace("${assets_index_name}", indexId); // [FIX] Placeholder correcto para 1.8.9
@@ -777,7 +867,7 @@ public class InicioView {
                     // Versión Moderna (1.13+) que usa una lista de argumentos
                     command.add("--username"); command.add(username);
                     command.add("--version"); command.add(version);
-                    command.add("--gameDir"); command.add(DATA_DIR);
+                    command.add("--gameDir"); command.add(new File(DATA_DIR).getAbsolutePath());
                     command.add("--assetsDir"); command.add(new File(DATA_DIR, "assets").getAbsolutePath());
                     command.add("--assetIndex"); command.add(versionJson.has("assetIndex") ? versionJson.getAsJsonObject("assetIndex").get("id").getAsString() : version);
                     command.add("--uuid"); command.add(uuid);
@@ -1198,49 +1288,207 @@ public class InicioView {
     }
 
     private void updateUserInfo() {
-        if (SESSION_FILE.exists()) {
-            long currentModified = SESSION_FILE.lastModified();
-            if (currentModified > lastSessionModified) {
-                lastSessionModified = currentModified;
-                JsonObject session = loadSession();
-                String name = session.has("username") ? session.get("username").getAsString() : "Invitado";
-                String avatarPath = session.has("avatar_path") && !session.get("avatar_path").isJsonNull() ? session.get("avatar_path").getAsString() : null;
-                
-                Platform.runLater(() -> {
-                    lblUser.setText(name);
-                    if (avatarPath != null && new File(avatarPath).exists()) {
-                        // Cargar avatar personalizado local
-                        Image customAvatar = new Image(new File(avatarPath).toURI().toString(), false);
-                        avatar.setFill(new ImagePattern(customAvatar));
-                    } else if (!"Invitado".equals(name)) {
-                        // Cargar cabeza 3D del skin usando el nombre de usuario
-                        Image skinHead = new Image("https://minotar.net/cube/" + name + "/64.png", true);
-                        avatar.setFill(new ImagePattern(skinHead));
-                    } else {
-                        avatar.setFill(Color.web("#0078d7"));
-                    }
+        // [FIX] Mover la lógica de I/O a un hilo secundario para no congelar la UI
+        new Thread(() -> {
+            // [FIX] NullPointerException: Asegurarse de que los componentes de UI estén inicializados
+            if (lblUser == null || avatar == null) return;
+
+            if (SESSION_FILE.exists()) {
+                long currentModified = SESSION_FILE.lastModified();
+                if (currentModified > lastSessionModified) {
+                    lastSessionModified = currentModified;
+                    JsonObject session = loadSession();
+                    String name = session.has("username") ? session.get("username").getAsString() : "Invitado";
+                    String avatarPath = session.has("avatar_path") && !session.get("avatar_path").isJsonNull() ? session.get("avatar_path").getAsString() : null;
+                    
+                    Platform.runLater(() -> {
+                        lblUser.setText(name);
+                        
+                        if (avatarPath != null && new File(avatarPath).exists()) {
+                            // --- Cargar avatar personalizado local ---
+                            Image customAvatar = new Image(new File(avatarPath).toURI().toString(), false);
+                            avatar.setFill(new ImagePattern(customAvatar));
+                            
+                        } else if (!"Invitado".equals(name)) {
+                            // --- CAMBIO: API MC-Heads (Estilo MineSkin) ---
+                            // Carga la skin con la capa externa (overlay) activada.
+                            // Funciona para Premium y No-Premium (por nombre).
+                            String urlApi = "https://mc-heads.net/avatar/" + name + "/64";
+                            
+                            Image skinHead = new Image(urlApi, true); // Carga en segundo plano
+
+                            skinHead.progressProperty().addListener((obs, oldVal, newVal) -> {
+                                if (newVal.doubleValue() >= 1.0) {
+                                    if (!skinHead.isError()) {
+                                        avatar.setFill(new ImagePattern(skinHead));
+                                    } else {
+                                        // Si falla la carga, poner a Steve
+                                        aplicarAvatarDefault();
+                                    }
+                                }
+                            });
+
+                            // Fallback si hay error de red
+                            skinHead.exceptionProperty().addListener((obs, oldEx, newEx) -> aplicarAvatarDefault());
+                            
+                        } else {
+                            aplicarAvatarDefault();
+                        }
+                    });
+                }
+            } else {
+                Platform.runLater(() -> { 
+                    lblUser.setText("Invitado"); 
+                    aplicarAvatarDefault(); 
                 });
             }
-        } else {
-            Platform.runLater(() -> { lblUser.setText("Invitado"); avatar.setFill(Color.web("#0078d7")); });
-        }
+        }).start();
     }
 
-    private Button createSocialButton(String text, String color, String url) {
+    private VBox createDiscordWidget() {
+        VBox widget = new VBox(10);
+        widget.setStyle("-fx-background-color: #5865F2; -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
+        
+        Label title = new Label("Discord Oficial");
+        title.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        Label desc = new Label("Únete a nuestra comunidad para soporte y noticias.");
+        desc.setStyle("-fx-text-fill: #E0E0E0; -fx-font-size: 11px;");
+        desc.setWrapText(true);
+        
+        Button btnJoin = new Button("Unirse");
+        btnJoin.setStyle("-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10;");
+        btnJoin.setMaxWidth(Double.MAX_VALUE);
+        
+        btnJoin.setOnAction(e -> {
+            try {
+                String url = "https://discord.com/invite/b4mtjNcCCV";
+                String os = System.getProperty("os.name").toLowerCase();
+                if (os.contains("win")) {
+                    Runtime.getRuntime().exec("rundll32 url.dll,FileProtocolHandler " + url);
+                } else {
+                    // Compatibilidad con otros sistemas
+                    Class<?> desktopClass = Class.forName("java.awt.Desktop");
+                    Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
+                    desktopClass.getMethod("browse", java.net.URI.class).invoke(desktop, new java.net.URI(url));
+                }
+            } catch (Exception ex) { 
+                System.out.println("No se pudo abrir Discord: " + ex.getMessage());
+            }
+        });
+        
+        widget.getChildren().addAll(title, desc, btnJoin);
+        return widget;
+    }
+
+    private Button createSocialButton(String text, String colorHex, String url) {
         Button btn = new Button(text);
-        btn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 20; -fx-padding: 5 15;");
-        btn.setOnMouseEntered(e -> btn.setOpacity(0.8));
-        btn.setOnMouseExited(e -> btn.setOpacity(1.0));
+        btn.setStyle("-fx-background-color: " + colorHex + "; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold; -fx-background-radius: 5; -fx-padding: 5 15;");
         btn.setOnAction(e -> {
             try {
-                // [FIX] Uso de reflexión para evitar dependencia directa de AWT (incompatible con Android)
-                Class<?> desktopClass = Class.forName("java.awt.Desktop");
-                Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
-                desktopClass.getMethod("browse", java.net.URI.class).invoke(desktop, new java.net.URI(url));
-            } catch (Exception ex) { 
-                System.out.println("No se pudo abrir URL: " + url);
-            }
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(new java.net.URI(url));
+                }
+            } catch (Exception ex) { }
         });
         return btn;
     }
+
+    private void aplicarAvatarDefault() {
+        if (avatar == null) return;
+        try {
+            String uri = resolveAssetPath("assets/icons/steve.png");
+            Image defaultAvatar = new Image(uri);
+            if (defaultAvatar.isError()) {
+                avatar.setFill(Color.GRAY);
+            } else {
+                avatar.setFill(new ImagePattern(defaultAvatar));
+            }
+        } catch (Exception e) {
+            avatar.setFill(Color.GRAY);
+        }
+    }
+
+    // --- [NUEVO] Lógica de Optimización para Bajos Recursos ---
+
+    private void checkAndPromptForLowSpecMode() {
+        // [FIX] Mover la lógica de I/O a un hilo secundario
+        new Thread(() -> {
+            try {
+                com.sun.management.OperatingSystemMXBean osBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+                long totalRamMB = osBean.getTotalPhysicalMemorySize() / (1024 * 1024);
+
+                // Considerar bajos recursos si la RAM es de 4GB o menos
+                if (totalRamMB <= 4096) {
+                    JsonObject settings = loadSettings();
+                    // Mostrar solo si nunca se ha mostrado antes
+                    if (!settings.has("lowSpecPromptShown") || !settings.get("lowSpecPromptShown").getAsBoolean()) {
+                        Platform.runLater(this::showLowSpecOptimizationDialog);
+                    }
+                }
+            } catch (Exception | Error e) {
+                System.out.println("Advertencia: No se pudo verificar la RAM del sistema para el modo de bajos recursos: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    private void showLowSpecOptimizationDialog() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Optimización de Rendimiento");
+        alert.setHeaderText("PC de Bajos Recursos Detectado");
+        alert.setContentText("Hemos detectado que tu PC podría beneficiarse del Modo de Rendimiento Extremo.\n\n" +
+                             "Esto ajustará los argumentos de Java para reducir el consumo de memoria y mejorar los FPS.\n\n" +
+                             "¿Deseas activar esta optimización ahora?");
+
+        ButtonType btnActivate = new ButtonType("Activar Modo Extremo");
+        ButtonType btnIgnore = new ButtonType("Ignorar", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+        alert.getDialogPane().getButtonTypes().setAll(btnActivate, btnIgnore);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == btnActivate) {
+            applyExtremePerformanceSettings();
+        }
+
+        // Marcar como mostrado para que no vuelva a aparecer
+        JsonObject settings = loadSettings();
+        settings.addProperty("lowSpecPromptShown", true);
+        saveSettings(settings);
+    }
+
+    private void applyExtremePerformanceSettings() {
+        long totalRamMB = 4096; // Default a 4GB si falla la detección
+        try {
+            com.sun.management.OperatingSystemMXBean osBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+            totalRamMB = osBean.getTotalPhysicalMemorySize() / (1024 * 1024);
+        } catch (Exception | Error e) { /* usar default */ }
+
+        String jvmArgs = "";
+        double ramToSet = 2048;
+
+        if (totalRamMB <= 2048) { // 2GB o menos -> 1GB para MC
+            jvmArgs = "-Xmx1G -Xms1G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20";
+            ramToSet = 1024;
+        } else { // 4GB o más (hasta 8GB según tu petición) -> 2GB para MC
+            jvmArgs = "-Xmx2G -Xms2G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20";
+            ramToSet = 2048;
+        }
+
+        JsonObject settings = loadSettings();
+        settings.addProperty("jvmArgs", jvmArgs);
+        settings.addProperty("ram", ramToSet); // Sincronizar con el slider de ajustes
+        saveSettings(settings);
+
+        MainView.showNotification("Optimización Activada", "Se ha aplicado el Modo de Rendimiento Extremo.", "success");
+    }
+
+    private void saveSettings(JsonObject settings) {
+        try (FileWriter writer = new FileWriter(SETTINGS_FILE)) {
+            gson.toJson(settings, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+            MainView.showNotification("Error", "No se pudo guardar la configuración.", "error");
+        }
+    }
+
 }

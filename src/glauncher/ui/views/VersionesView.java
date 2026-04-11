@@ -225,7 +225,6 @@ public class VersionesView {
         lblName.setStyle("-fx-text-fill: white; -fx-font-size: 16px;");
         HBox.setHgrow(lblName, Priority.ALWAYS);
 
-        Button btnDelete = new Button("Borrar");
         Button btnDelete = new Button();
         btnDelete.setGraphic(new FontIcon(FontAwesome.TRASH));
         btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
@@ -317,14 +316,11 @@ public class VersionesView {
         topBar.setPadding(new Insets(0, 0, 15, 0));
         topBar.setAlignment(Pos.CENTER_RIGHT);
 
-        Button btnCrear = new Button("+ Crear Instancia");
         Button btnCrear = new Button(" Crear Instancia");
         btnCrear.setGraphic(new FontIcon(FontAwesome.PLUS));
         btnCrear.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
         btnCrear.setOnAction(e -> showCreateInstanceDialog());
 
-        Button btnRecargar = new Button("↻");
-        btnRecargar.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand;");
         Button btnRecargar = new Button();
         btnRecargar.setGraphic(new FontIcon(FontAwesome.REFRESH));
         btnRecargar.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand; -fx-padding: 5 10;");
@@ -414,8 +410,6 @@ public class VersionesView {
         btnPlay.setPrefHeight(40);
         btnPlay.setOnAction(e -> launchInstance(instanceDir));
 
-        Button btnFolder = new Button("📂");
-        btnFolder.setStyle("-fx-background-color: #f0ad4e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
         Button btnFolder = new Button();
         btnFolder.setGraphic(new FontIcon(FontAwesome.FOLDER_OPEN_O));
         btnFolder.setStyle("-fx-background-color: #f0ad4e; -fx-text-fill: white; -fx-cursor: hand;");
@@ -427,8 +421,6 @@ public class VersionesView {
             } catch (Exception ex) { ex.printStackTrace(); }
         });
 
-        Button btnDelete = new Button("X");
-        btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand;");
         Button btnDelete = new Button();
         btnDelete.setGraphic(new FontIcon(FontAwesome.TRASH_O));
         btnDelete.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand; -fx-padding: 5 10;");

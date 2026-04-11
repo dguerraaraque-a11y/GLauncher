@@ -3,8 +3,14 @@ setlocal EnableDelayedExpansion
 
 REM --- CONFIGURACION DE RUTAS ---
 set "BASE_DIR=%~dp0"
-set "FX_LIB=%BASE_DIR%lib\javafx-sdk-17.0.13\lib"
-set "OUT_DIR=%BASE_DIR%out"
+:: Limpiar la ruta para evitar problemas de doble slash
+if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
+
+set "FX_LIB=%BASE_DIR%\lib\javafx-sdk-17.0.13\lib"
+set "OUT_DIR=%BASE_DIR%\out"
+set "SOURCES_FILE=%BASE_DIR%\sources.txt"
+set "LOG_DIR=%BASE_DIR%\logs"
+set "LOG_FILE=%LOG_DIR%\latest.log"
 
 REM --- VERIFICACION DE JAVA (PORTABLE) ---
 echo [INFO] Buscando una instalacion de JDK 17+...
@@ -115,7 +121,7 @@ call :compile_and_run
 
     REM Comprobar si algun archivo .java es mas nuevo que la ultima compilacion.
     REM El comando de PowerShell sale con codigo 0 si hay cambios, 1 si no los hay.
-    powershell -Command "$source = (Get-ChildItem -Path '%BASE_DIR%src' -Recurse -Filter *.java | Sort-Object LastWriteTime -Descending | Select-Object -First 1); if ($null -eq $source) { exit 1 }; $target = (Get-Item '%MARKER_FILE%' -ErrorAction SilentlyContinue); if ($null -eq $target) { exit 0 }; exit ($source.LastWriteTime -le $target.LastWriteTime)"
+    powershell -Command "$source = (Get-ChildItem -Path '%BASE_DIR%\src' -Recurse -Filter *.java | Sort-Object LastWriteTime -Descending | Select-Object -First 1); if ($null -eq $source) { exit 1 }; $target = (Get-Item '%MARKER_FILE%' -ErrorAction SilentlyContinue); if ($null -eq $target) { exit 0 }; exit ($source.LastWriteTime -le $target.LastWriteTime)"
     
     if %errorlevel% == 0 (
         echo [WATCHER] Cambios detectados. Recompilando y reiniciando...
@@ -128,12 +134,20 @@ goto main_loop
     REM Matar la instancia anterior de la aplicacion si se esta ejecutando
     taskkill /F /FI "WINDOWTITLE eq GLauncherDev" >nul 2>&1
 
-    echo [INFO] Creando lista de archivos fuente...
-    powershell -Command "Get-ChildItem -Path '%BASE_DIR%src' -Recurse -Filter *.java | ForEach-Object { '\"' + $_.FullName.Replace('\', '/') + '\"' } | Out-File -Encoding ASCII -FilePath '%BASE_DIR%sources.txt'"
-
+    echo [INFO] Generando lista de archivos fuente (.java)...
+    if exist "%SOURCES_FILE%" del /F /Q "%SOURCES_FILE%"
+    
+    :: Usar dir directamente es mas fiable que un bucle for para redirigir a un archivo
+    dir /s /b "%BASE_DIR%\src\*.java" > "%SOURCES_FILE%" 2>nul
+    
+    if not exist "%SOURCES_FILE%" (
+        echo [ERROR] No se encontraron archivos fuente en %BASE_DIR%\src
+        goto :eof
+    )
+    
     echo [INFO] Compilando proyecto...
     if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
-    "%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -d "%OUT_DIR%" @sources.txt
+    "%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -d "%OUT_DIR%" @"%SOURCES_FILE%"
     if !errorlevel! neq 0 ( echo [ERROR] Error de compilacion detectado. & goto :eof )
 
     REM --- Compilar y empaquetar el Agente de Skins ---
@@ -158,13 +172,11 @@ goto main_loop
     )
 
     echo [INFO] Sincronizando recursos (assets)...
-    if exist "%BASE_DIR%assets" ( xcopy /D /S /E /Y /I "%BASE_DIR%assets" "%OUT_DIR%\assets" >nul )
+    if exist "%BASE_DIR%\assets" ( xcopy /D /S /E /Y /I "%BASE_DIR%\assets" "%OUT_DIR%\assets" >nul )
 
     echo [WATCHER] Compilacion exitosa. Iniciando aplicacion...
     
-    REM [NUEVO] Crear carpeta de logs y redirigir la salida de la app a un archivo para depuracion.
-    if not exist "%BASE_DIR%logs" mkdir "%BASE_DIR%logs"
-    set "LOG_FILE=%BASE_DIR%logs\latest.log"
+    if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
     echo [INFO] La salida de la aplicacion se guardara en: !LOG_FILE!
     set "LAUNCH_CMD="%JAVA_CMD%" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -cp "!LIBS_CP!" glauncher.GLauncher"
     start "GLauncherDev" cmd /c "!LAUNCH_CMD! > "!LOG_FILE!" 2>&1"

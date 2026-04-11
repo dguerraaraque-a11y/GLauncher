@@ -33,6 +33,8 @@ import java.io.File;
 import java.io.FileReader;
 import glauncher.ui.views.*;
 import glauncher.utils.DiscordIntegration;
+import org.kordamp.ikonli.fontawesome.FontAwesome;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public class MainView {
 
@@ -53,6 +55,49 @@ public class MainView {
         root = new StackPane();
         // [FIX] Asegurar que la ventana tenga un fondo base transparente para soportar bordes redondeados
         root.setStyle("-fx-background-color: transparent;");
+
+        // [NUEVO] Inyectar CSS global moderno para reemplazar estilo por defecto de JavaFX
+        // Esto rediseña TODOS los componentes para que no parezcan de Java estándar
+        root.getStylesheets().add("data:text/css," + 
+            ".root { -fx-base: #1e1e1e; -fx-accent: #0078d7; -fx-focus-color: transparent; -fx-faint-focus-color: transparent; -fx-font-family: 'Segoe UI', sans-serif; }" +
+            ".button { -fx-background-color: #2d2d2d; -fx-text-fill: white; -fx-background-radius: 8; -fx-border-color: #3d3d3d; -fx-border-radius: 8; -fx-cursor: hand; -fx-padding: 8 15; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 3, 0, 0, 1); transition: all 0.2s; }" +
+            ".button:hover { -fx-background-color: #3a3a3a; -fx-border-color: #555; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 5, 0, 0, 2); -fx-translate-y: -1; }" +
+            ".button:pressed { -fx-background-color: #222; -fx-translate-y: 1; }" +
+            ".text-field, .text-area { -fx-background-color: #1a1a1a; -fx-text-fill: white; -fx-background-radius: 8; -fx-border-color: #333; -fx-border-radius: 8; -fx-prompt-text-fill: #666; -fx-padding: 10; }" +
+            ".text-field:focused, .text-area:focused { -fx-border-color: #0078d7; -fx-background-color: #202020; -fx-effect: dropshadow(three-pass-box, rgba(0,120,215,0.3), 5, 0, 0, 0); }" +
+            ".scroll-bar { -fx-background-color: transparent; -fx-pref-width: 10; }" +
+            ".scroll-bar .track { -fx-background-color: transparent; }" +
+            ".scroll-bar .thumb { -fx-background-color: #444; -fx-background-radius: 10; -fx-background-insets: 2; }" +
+            ".scroll-bar .thumb:hover { -fx-background-color: #666; }" +
+            ".scroll-pane { -fx-background-color: transparent; -fx-background-insets: 0; }" +
+            ".scroll-pane .viewport { -fx-background-color: transparent; }" +
+            ".list-view { -fx-background-color: transparent; -fx-background-insets: 0; }" +
+            ".list-cell { -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 8 12; }" +
+            ".list-cell:filled:selected { -fx-background-color: rgba(0,120,215,0.2); -fx-background-radius: 5; -fx-border-color: rgba(0,120,215,0.5); -fx-border-radius: 5; }" +
+            ".list-cell:filled:hover { -fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 5; }" +
+            ".combo-box { -fx-background-color: #2d2d2d; -fx-text-fill: white; -fx-background-radius: 8; -fx-border-color: #3d3d3d; -fx-border-radius: 8; }" +
+            ".combo-box .cell { -fx-text-fill: white; }" +
+            ".combo-box-popup .list-view { -fx-background-color: #1e1e1e; -fx-border-color: #333; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 5); }" +
+            ".combo-box-popup .list-cell { -fx-text-fill: white; }" +
+            ".combo-box-popup .list-cell:hover { -fx-background-color: #333; }" +
+            ".tab-pane .tab-header-area .tab-header-background { -fx-background-color: transparent; }" +
+            ".tab { -fx-background-color: #2d2d2d; -fx-text-fill: #aaa; -fx-background-radius: 8 8 0 0; -fx-padding: 8 15; }" +
+            ".tab:selected { -fx-background-color: #0078d7; -fx-text-fill: white; }" +
+            ".tab-label { -fx-text-fill: inherit; -fx-font-weight: bold; }" +
+            ".check-box { -fx-text-fill: white; -fx-cursor: hand; }" +
+            ".check-box .box { -fx-background-color: #1a1a1a; -fx-border-color: #444; -fx-border-radius: 4; }" +
+            ".check-box:selected .mark { -fx-background-color: white; -fx-shape: 'M 0 0 L 2 2 L 6 -4'; }" +
+            ".check-box:selected .box { -fx-background-color: #0078d7; -fx-border-color: #0078d7; }" +
+            ".slider .track { -fx-background-color: #333; -fx-background-radius: 5; }" +
+            ".slider .thumb { -fx-background-color: #0078d7; -fx-background-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 3, 0, 0, 1); }" +
+            ".progress-bar .track { -fx-background-color: #1a1a1a; -fx-background-radius: 10; }" +
+            ".progress-bar .bar { -fx-background-color: linear-gradient(to right, #0078d7, #00b4db); -fx-background-radius: 10; }" +
+            ".separator .line { -fx-border-color: #333; -fx-border-width: 1 0 0 0; }" +
+            ".tooltip { -fx-background-color: #1e1e1e; -fx-text-fill: white; -fx-border-color: #444; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 8, 0, 0, 2); }" +
+            ".dialog-pane { -fx-background-color: #1e1e1e; }" +
+            ".dialog-pane .header-panel { -fx-background-color: #252525; }" +
+            ".dialog-pane .label { -fx-text-fill: white; }"
+        );
 
         contentPane = new BorderPane();
 
@@ -98,6 +143,17 @@ public class MainView {
         btnDownloads = new Button("Mods");
         btnSettings = new Button("Ajustes");
 
+        // [NUEVO] Asignar iconos a los botones de navegación
+        btnInicio.setGraphic(new FontIcon(FontAwesome.HOME));
+        btnNews.setGraphic(new FontIcon(FontAwesome.NEWSPAPER_O));
+        btnShop.setGraphic(new FontIcon(FontAwesome.SHOPPING_BAG));
+        btnVersions.setGraphic(new FontIcon(FontAwesome.CUBES));
+        btnCuenta.setGraphic(new FontIcon(FontAwesome.USER));
+        btnChat.setGraphic(new FontIcon(FontAwesome.COMMENT));
+        btnServers.setGraphic(new FontIcon(FontAwesome.SERVER));
+        btnMusic.setGraphic(new FontIcon(FontAwesome.MUSIC));
+        btnDownloads.setGraphic(new FontIcon(FontAwesome.DOWNLOAD));
+        btnSettings.setGraphic(new FontIcon(FontAwesome.COGS));
         btnInicio.setOnAction(e -> { 
             switchView(inicio.getView()); 
             DiscordIntegration.update("En el Inicio", "Menú Principal");
@@ -145,9 +201,9 @@ public class MainView {
         navBar.getChildren().forEach(node -> {
             if (node instanceof Button) {
                 Button btn = (Button) node;
-                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-padding: 4 8;");
-                btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: rgba(255,255,255,0.15); -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-background-radius: 20; -fx-padding: 4 8;"));
-                btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-padding: 4 8;"));
+                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-padding: 6 12;");
+                btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: rgba(255,255,255,0.15); -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-background-radius: 20; -fx-padding: 6 12;"));
+                btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px; -fx-padding: 6 12;"));
             }
         });
 

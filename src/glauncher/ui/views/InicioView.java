@@ -62,6 +62,8 @@ import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.lang.management.ManagementFactory;
 import glauncher.MainView;
+import org.kordamp.ikonli.fontawesome.FontAwesome;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public class InicioView {
 
@@ -274,7 +276,7 @@ public class InicioView {
         // 4. Botón Reparar
         Button btnRepair = new Button();
         // [NUEVO] Usar el icono de tuerca en lugar de texto
-        btnRepair.setGraphic(loadIcon("assets/icons/icons-gui/tuerca.png", 20));
+        btnRepair.setGraphic(new FontIcon(FontAwesome.COG));
         btnRepair.setTooltip(new Tooltip("Reparar Instalación (Verificar archivos)"));
         // [MEJORA] Estilo más moderno y limpio para el botón de icono
         btnRepair.setPrefHeight(50);
@@ -444,13 +446,16 @@ public class InicioView {
         HBox controls = new HBox(15);
         controls.setAlignment(Pos.CENTER);
         
-        Button btnPrev = new Button("⏮");
+        Button btnPrev = new Button();
+        btnPrev.setGraphic(new FontIcon(FontAwesome.STEP_BACKWARD));
         btnPrev.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
         
-        Button btnPlay = new Button("▶");
+        Button btnPlay = new Button();
+        btnPlay.setGraphic(new FontIcon(FontAwesome.PLAY));
         btnPlay.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-background-radius: 20; -fx-min-width: 30px; -fx-cursor: hand;");
         
-        Button btnNext = new Button("⏭");
+        Button btnNext = new Button();
+        btnNext.setGraphic(new FontIcon(FontAwesome.STEP_FORWARD));
         btnNext.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
         
         controls.getChildren().addAll(btnPrev, btnPlay, btnNext);
@@ -462,6 +467,13 @@ public class InicioView {
             if (mv != null) {
                 if (mv.currentTitleProperty() != null) {
                     songTitle.textProperty().bind(mv.currentTitleProperty());
+                }
+                // [NUEVO] Cambiar el icono de play/pause dinámicamente
+                if (mv.playingProperty() != null) {
+                    mv.playingProperty().addListener((obs, wasPlaying, isPlaying) -> {
+                        FontIcon icon = (FontIcon) btnPlay.getGraphic();
+                        icon.setIconCode(isPlaying ? FontAwesome.PAUSE : FontAwesome.PLAY);
+                    });
                 }
                 btnPlay.setOnAction(e -> mv.togglePlayPause());
                 btnNext.setOnAction(e -> mv.playNext());
@@ -1383,6 +1395,15 @@ public class InicioView {
 
     private Button createSocialButton(String text, String colorHex, String url) {
         Button btn = new Button(text);
+        FontIcon icon = null;
+        if ("Discord".equalsIgnoreCase(text)) {
+            icon = new FontIcon(FontAwesome.DISCORD);
+        } else if ("YouTube".equalsIgnoreCase(text)) {
+            icon = new FontIcon(FontAwesome.YOUTUBE_PLAY);
+        } else if ("Sitio Web".equalsIgnoreCase(text)) {
+            icon = new FontIcon(FontAwesome.GLOBE);
+        }
+        if (icon != null) btn.setGraphic(icon);
         btn.setStyle("-fx-background-color: " + colorHex + "; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold; -fx-background-radius: 5; -fx-padding: 5 15;");
         btn.setOnAction(e -> {
             try {

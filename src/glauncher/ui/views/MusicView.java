@@ -42,22 +42,28 @@ import org.jsoup.Jsoup;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.io.BufferedInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.io.FileWriter;
 import com.google.gson.reflect.TypeToken;
+import glauncher.utils.Paths;
 
 public class MusicView {
-    
-    private final String DATA_DIR = (System.getenv("APPDATA") != null ? 
-        System.getenv("APPDATA") : System.getProperty("user.home")) + File.separator + ".glauncher";
+    private final String DATA_DIR = Paths.DATA_DIR;
     private final File LOCAL_PLAYLIST_FILE = new File(DATA_DIR, "local_playlist.json");
     private BorderPane root;
     private StackPane contentArea;
@@ -84,7 +90,7 @@ public class MusicView {
     private ListView<String> queueListView;
     private Label lblOverlayTitle; // [NUEVO] Título en overlay
     private WebView webPlayer;
-    private final String YT_API_KEY = "AIzaSyAlGmxmZbvkEKjVGLD487giPvl10wO-C9k";
+    // private final String YT_API_KEY = "AIzaSyAlGmxmZbvkEKjVGLD487giPvl10wO-C9k"; // Eliminado: La web de GMusic maneja su propia API Key
     private final Gson gson = new Gson();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final List<String> playlist = new ArrayList<>();
@@ -159,6 +165,9 @@ public class MusicView {
             return instance.root;
         }
         instance = this;
+
+        // [NUEVO] Sincronizar recursos web de GMusic al abrir la pestaña
+        syncGMusicWeb();
 
         // [NUEVO] Detectar resolución para ajuste automático (Canaima/Laptop)
         Rectangle2D screen = Screen.getPrimary().getBounds();
@@ -586,6 +595,9 @@ public class MusicView {
         webPlayer.setCache(true);
         webPlayer.setCacheHint(CacheHint.SPEED);
         
+        // [NUEVO] Carga inicial de la web GMusic con soporte Offline
+        loadGMusicWeb();
+
         Label lblNowPlaying = new Label("Reproductor");
         lblNowPlaying.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
         
@@ -868,7 +880,7 @@ public class MusicView {
                 }
             } catch (Exception e) { e.printStackTrace(); }
         }
-        return YT_API_KEY; // Fallback a la clave por defecto si no hay configuración
+        return null; // Ya no hay fallback a una clave codificada
     }
 
     private String extractVideoId(String url) {
@@ -1237,5 +1249,94 @@ public class MusicView {
         });
         
         return btn;
+    }
+
+    // --- [NUEVO] Lógica de Sincronización Offline GMusic ---
+
+    private void syncGMusicWeb() {
+        executor.submit(() -> {
+            try {
+                // Descargar el repositorio desde GitHub (rama main)
+                URL url = new URL("https://github.com/dguerraaraque-a11y/GMusic-for-GLauncher/archive/refs/heads/main.zip");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestProperty("User-Agent", "GLauncher-Music-Sync");
+                
+                File tempZip = new File(DATA_DIR, "gmusic_web.zip");
+                try (InputStream in = new BufferedInputStream(conn.getInputStream());
+                     FileOutputStream out = new FileOutputStream(tempZip)) {
+                    byte[] buffer = new byte[4096];
+                    int n;
+                    while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                }
+                
+                // Descomprimir en la carpeta designada
+                unzip(tempZip, Paths.GMUSIC_DIR);
+                tempZip.delete();
+                System.out.println("[GMusic] Recursos web sincronizados correctamente.");
+            } catch (Exception e) {
+                System.err.println("[GMusic] Error al sincronizar recursos web: " + e.getMessage());
+            }
+        });
+    }
+
+    private void unzip(File zipFile, File destDir) throws IOException {
+        if (!destDir.exists()) destDir.mkdirs();
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                File file = new File(destDir, entry.getName());
+                if (entry.isDirectory()) {
+                    file.mkdirs();
+                } else {
+                    if (file.getParentFile() != null) file.getParentFile().mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(file)) {
+                        byte[] buffer = new byte[4096];
+                        int n;
+                        while ((n = zis.read(buffer)) != -1) fos.write(buffer, 0, n);
+                    }
+                }
+                zis.closeEntry();
+            }
+        }
+    }
+
+    private void loadGMusicWeb() {
+        String remoteUrl = "https://gmusic-snowy.vercel.app/";
+        Platform.runLater(() -> {
+            // Intentar cargar la versión online
+            webPlayer.getEngine().load(remoteUrl);
+            
+            // Monitor de carga para detectar fallos (sin internet)
+            webPlayer.getEngine().getLoadWorker().exceptionProperty().addListener((obs, oldEx, newEx) -> {
+                if (newEx != null) {
+                    // Si hay error de red, buscar el index.html localmente como base
+                    File localIndex = findIndexHtml(Paths.GMUSIC_DIR);
+                    if (localIndex != null && localIndex.exists()) {
+                        webPlayer.getEngine().load(localIndex.toURI().toString());
+                        glauncher.MainView.showNotification("GMusic Offline", "Sin conexión. Cargando archivos locales...", "warning");
+                        System.out.println("[GMusic] Cargando versión offline local.");
+                    }
+                }
+            });
+        });
+    }
+
+    /**
+     * Busca recursivamente el archivo index.html.
+     * Al cargar este archivo desde una URI local, el WebView permite la navegación
+     * a play.html y profile.html mediante rutas relativas automáticamente.
+     */
+    private File findIndexHtml(File dir) {
+        if (!dir.exists()) return null;
+        File[] files = dir.listFiles();
+        if (files == null) return null;
+        for (File f : files) {
+            if (f.getName().equalsIgnoreCase("index.html")) return f;
+            if (f.isDirectory()) {
+                File found = findIndexHtml(f);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 }

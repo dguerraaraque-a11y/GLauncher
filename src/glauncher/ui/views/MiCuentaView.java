@@ -159,8 +159,14 @@ public class MiCuentaView {
         Button btnSimulate = new Button("Simular Login (Dev)");
         btnSimulate.setStyle("-fx-background-color: transparent; -fx-text-fill: #555;");
         btnSimulate.setOnAction(e -> {
+            String user = "DevUser";
+            String uuid = java.util.UUID.randomUUID().toString();
+            String namePart = user.toLowerCase();
+            String token = "s3ss10n_" + (System.currentTimeMillis() / 1000) + "_" + namePart;
+            
             isLoggedIn = true;
             saveSession("DevUser", "dummy_token_123", "00000000-0000-0000-0000-000000000000", "offline"); // Guardar sesión simulada
+            saveSession(user, token, uuid, "offline");
             showDashboard();
         });
 
@@ -888,6 +894,13 @@ public class MiCuentaView {
             }
             session.addProperty("username", newName);
             // Mantener otros datos si existen
+            
+            // [NUEVO] Al cambiar nombre, regenerar identidad offline para mayor realismo
+            String newUuid = java.util.UUID.randomUUID().toString();
+            String newToken = "s3ss10n_" + (System.currentTimeMillis() / 1000) + "_" + newName.toLowerCase().replaceAll("[^a-z0-9]", "");
+            session.addProperty("uuid", newUuid);
+            session.addProperty("token", newToken);
+
             try (FileWriter writer = new FileWriter(SESSION_FILE)) {
                 gson.toJson(session, writer);
             }

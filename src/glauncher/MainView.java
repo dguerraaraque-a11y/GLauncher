@@ -33,7 +33,10 @@ import java.io.File;
 import java.io.FileReader;
 import glauncher.ui.views.*;
 import glauncher.utils.DiscordIntegration;
-import org.kordamp.ikonli.fontawesome.FontAwesome;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeBrands;
+
+
 import org.kordamp.ikonli.javafx.FontIcon;
 
 public class MainView {
@@ -144,16 +147,16 @@ public class MainView {
         btnSettings = new Button("Ajustes");
 
         // [NUEVO] Asignar iconos a los botones de navegación
-        btnInicio.setGraphic(new FontIcon(FontAwesome.HOME));
-        btnNews.setGraphic(new FontIcon(FontAwesome.NEWSPAPER_O));
-        btnShop.setGraphic(new FontIcon(FontAwesome.SHOPPING_BAG));
-        btnVersions.setGraphic(new FontIcon(FontAwesome.CUBES));
-        btnCuenta.setGraphic(new FontIcon(FontAwesome.USER));
-        btnChat.setGraphic(new FontIcon(FontAwesome.COMMENT));
-        btnServers.setGraphic(new FontIcon(FontAwesome.SERVER));
-        btnMusic.setGraphic(new FontIcon(FontAwesome.MUSIC));
-        btnDownloads.setGraphic(new FontIcon(FontAwesome.DOWNLOAD));
-        btnSettings.setGraphic(new FontIcon(FontAwesome.COGS));
+        btnInicio.setGraphic(new FontIcon(FontAwesomeSolid.HOME));
+        btnNews.setGraphic(new FontIcon(FontAwesomeSolid.NEWSPAPER));
+        btnShop.setGraphic(new FontIcon(FontAwesomeSolid.SHOPPING_BAG));
+        btnVersions.setGraphic(new FontIcon(FontAwesomeSolid.CUBES));
+        btnCuenta.setGraphic(new FontIcon(FontAwesomeSolid.USER));
+        btnChat.setGraphic(new FontIcon(FontAwesomeSolid.COMMENT));
+        btnServers.setGraphic(new FontIcon(FontAwesomeSolid.SERVER));
+        btnMusic.setGraphic(new FontIcon(FontAwesomeSolid.MUSIC));
+        btnDownloads.setGraphic(new FontIcon(FontAwesomeSolid.DOWNLOAD));
+        btnSettings.setGraphic(new FontIcon(FontAwesomeSolid.COGS));
         btnInicio.setOnAction(e -> { 
             switchView(inicio.getView()); 
             DiscordIntegration.update("En el Inicio", "Menú Principal");

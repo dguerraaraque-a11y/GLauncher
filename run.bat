@@ -75,29 +75,36 @@ if exist "%BASE_DIR%lib\java-discord-rpc-2.0.1.jar" (
 )
 
 REM Verificar y descargar librerias faltantes si es necesario
-if not exist "%BASE_DIR%lib\NewPipeExtractor-0.24.8.jar" (
-    echo [INFO] Librerias no encontradas. Ejecutando Ver.bat para descargarlas...
-    if exist "%BASE_DIR%Ver.bat" (
-        pushd "%BASE_DIR%"
-        call Ver.bat
-        popd
-    )
-)
-if not exist "%BASE_DIR%lib\java-discord-rpc-2.0.1.jar" (
-    echo [INFO] Libreria Discord RPC no encontrada. Ejecutando Ver.bat para descargarla...
-    if exist "%BASE_DIR%Ver.bat" (
-        pushd "%BASE_DIR%"
-        call Ver.bat
-        popd
-    )
-)
+REM if not exist "%BASE_DIR%lib\NewPipeExtractor-0.24.8.jar" (
+REM     echo [INFO] Librerias no encontradas. Ejecutando Ver.bat para descargarlas...
+REM     if exist "%BASE_DIR%Ver.bat" (
+REM         pushd "%BASE_DIR%"
+REM         call Ver.bat
+REM         popd
+REM     )
+REM )
+REM if not exist "%BASE_DIR%lib\java-discord-rpc-2.0.1.jar" (
+REM     echo [INFO] Libreria Discord RPC no encontrada. Ejecutando Ver.bat para descargarla...
+REM     if exist "%BASE_DIR%Ver.bat" (
+REM         pushd "%BASE_DIR%"
+REM         call Ver.bat
+REM         popd
+REM     )
+REM )
 
 REM Construir Classpath incluyendo todos los JARs en 'lib' y sus subcarpetas
 set "LIBS_CP=%OUT_DIR%"
-for /r "%BASE_DIR%lib" %%f in (*.jar) do (
-    set "LIBS_CP=!LIBS_CP!;%%f"
-    echo [LIB] Detectada: %%~nxf
+echo [INFO] Escaneando librerias en %BASE_DIR%\lib...
+set "JAR_COUNT=0"
+for /r "%BASE_DIR%\lib" %%f in (*.jar) do (
+    REM Solo agregar al classpath lo que no sea una libreria base de JavaFX (que van al module-path)
+    echo %%~nxf | findstr /R /I "^javafx-" >nul
+    if errorlevel 1 (
+        set "LIBS_CP=!LIBS_CP!;%%f"
+        set /a "JAR_COUNT+=1"
+    )
 )
+echo [INFO] Se han detectado !JAR_COUNT! librerias externas.
 
 set "MARKER_FILE=%OUT_DIR%\glauncher\GLauncher.class"
 
@@ -147,7 +154,7 @@ goto main_loop
     
     echo [INFO] Compilando proyecto...
     if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
-    "%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -d "%OUT_DIR%" @"%SOURCES_FILE%"
+    "%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing,jdk.management -d "%OUT_DIR%" @"%SOURCES_FILE%"
     if !errorlevel! neq 0 ( echo [ERROR] Error de compilacion detectado. & goto :eof )
 
     REM --- Compilar y empaquetar el Agente de Skins ---
@@ -178,7 +185,7 @@ goto main_loop
     
     if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
     echo [INFO] La salida de la aplicacion se guardara en: !LOG_FILE!
-    set "LAUNCH_CMD="%JAVA_CMD%" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -cp "!LIBS_CP!" glauncher.GLauncher"
+    set "LAUNCH_CMD="%JAVA_CMD%" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing,jdk.management -cp "!LIBS_CP!" glauncher.GLauncher"
     start "GLauncherDev" cmd /c "!LAUNCH_CMD! > "!LOG_FILE!" 2>&1"
 goto :eof
 

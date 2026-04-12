@@ -62,7 +62,8 @@ import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.lang.management.ManagementFactory;
 import glauncher.MainView;
-import org.kordamp.ikonli.fontawesome.FontAwesome;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeBrands;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 public class InicioView {
@@ -276,7 +277,9 @@ public class InicioView {
         // 4. Botón Reparar
         Button btnRepair = new Button();
         // [NUEVO] Usar el icono de tuerca en lugar de texto
-        btnRepair.setGraphic(new FontIcon(FontAwesome.COG));
+        FontIcon iconRepair = new FontIcon(FontAwesomeSolid.COG);
+        iconRepair.setIconColor(Color.WHITE);
+        btnRepair.setGraphic(iconRepair);
         btnRepair.setTooltip(new Tooltip("Reparar Instalación (Verificar archivos)"));
         // [MEJORA] Estilo más moderno y limpio para el botón de icono
         btnRepair.setPrefHeight(50);
@@ -447,15 +450,21 @@ public class InicioView {
         controls.setAlignment(Pos.CENTER);
         
         Button btnPrev = new Button();
-        btnPrev.setGraphic(new FontIcon(FontAwesome.STEP_BACKWARD));
+        FontIcon iconPrev = new FontIcon(FontAwesomeSolid.STEP_BACKWARD);
+        iconPrev.setIconColor(Color.WHITE);
+        btnPrev.setGraphic(iconPrev);
         btnPrev.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
         
         Button btnPlay = new Button();
-        btnPlay.setGraphic(new FontIcon(FontAwesome.PLAY));
+        FontIcon iconPlay = new FontIcon(FontAwesomeSolid.PLAY);
+        iconPlay.setIconColor(Color.WHITE);
+        btnPlay.setGraphic(iconPlay);
         btnPlay.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-background-radius: 20; -fx-min-width: 30px; -fx-cursor: hand;");
         
         Button btnNext = new Button();
-        btnNext.setGraphic(new FontIcon(FontAwesome.STEP_FORWARD));
+        FontIcon iconNext = new FontIcon(FontAwesomeSolid.STEP_FORWARD);
+        iconNext.setIconColor(Color.WHITE);
+        btnNext.setGraphic(iconNext);
         btnNext.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px;");
         
         controls.getChildren().addAll(btnPrev, btnPlay, btnNext);
@@ -469,10 +478,11 @@ public class InicioView {
                     songTitle.textProperty().bind(mv.currentTitleProperty());
                 }
                 // [NUEVO] Cambiar el icono de play/pause dinámicamente
-                if (mv.playingProperty() != null) {
-                    mv.playingProperty().addListener((obs, wasPlaying, isPlaying) -> {
+                if (mv.isPlayingProperty() != null) {
+                    mv.isPlayingProperty().addListener((obs, wasPlaying, isPlaying) -> {
                         FontIcon icon = (FontIcon) btnPlay.getGraphic();
-                        icon.setIconCode(isPlaying ? FontAwesome.PAUSE : FontAwesome.PLAY);
+                        icon.setIconColor(Color.WHITE);
+                        icon.setIconCode(isPlaying ? FontAwesomeSolid.PAUSE : FontAwesomeSolid.PLAY);
                     });
                 }
                 btnPlay.setOnAction(e -> mv.togglePlayPause());
@@ -586,10 +596,18 @@ public class InicioView {
                 String uuid = session.has("uuid") ? session.get("uuid").getAsString() : "0";
                 String token = session.has("token") ? session.get("token").getAsString() : "0";
                 String userType = session.has("type") && session.get("type").getAsString().equals("microsoft") ? "msa" : "mojang";
+                String type = session.has("type") ? session.get("type").getAsString() : "offline";
 
-                // [FIX] Generar un UUID offline válido si no existe uno para evitar que el juego lo rechace.
-                if (uuid == null || uuid.equals("0") || uuid.isEmpty()) {
-                    uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(StandardCharsets.UTF_8)).toString();
+                // [CORRECCIÓN] Generación de Sesión Offline dinámica con formato solicitado
+                if ("offline".equals(type) || uuid.startsWith("00000000")) {
+                    // Generar UUID aleatorio (v4) para que sea único en cada cambio
+                    uuid = UUID.randomUUID().toString();
+                    
+                    // Formato solicitado: s3ss10n_[hash_num]_[prefijo_username]
+                    String namePrefix = (username.length() > 4) ? username.substring(0, 4).toLowerCase() : username.toLowerCase();
+                    long timestamp = System.currentTimeMillis() / 100000;
+                    token = "s3ss10n_" + timestamp + "_" + namePrefix;
+
                     final String finalUuid = uuid;
                     Platform.runLater(() -> devConsoleOutput.appendText("INFO: No se encontró UUID de sesión. Generado UUID offline: " + finalUuid + "\n"));
                 }
@@ -1397,13 +1415,16 @@ public class InicioView {
         Button btn = new Button(text);
         FontIcon icon = null;
         if ("Discord".equalsIgnoreCase(text)) {
-            icon = new FontIcon(FontAwesome.DISCORD);
+            icon = new FontIcon(FontAwesomeBrands.DISCORD);
         } else if ("YouTube".equalsIgnoreCase(text)) {
-            icon = new FontIcon(FontAwesome.YOUTUBE_PLAY);
+            icon = new FontIcon(FontAwesomeBrands.YOUTUBE);
         } else if ("Sitio Web".equalsIgnoreCase(text)) {
-            icon = new FontIcon(FontAwesome.GLOBE);
+            icon = new FontIcon(FontAwesomeSolid.GLOBE);
         }
-        if (icon != null) btn.setGraphic(icon);
+        if (icon != null) {
+            icon.setIconColor(Color.WHITE);
+            btn.setGraphic(icon);
+        }
         btn.setStyle("-fx-background-color: " + colorHex + "; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold; -fx-background-radius: 5; -fx-padding: 5 15;");
         btn.setOnAction(e -> {
             try {

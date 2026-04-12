@@ -99,6 +99,12 @@ public class MusicView {
     private List<JsonObject> currentSearchItems = new ArrayList<>(); // [NUEVO] Cache de resultados
     private Stage playlistWindow; // [NUEVO] Ventana de lista de reproducción
 
+    // [NUEVO] Propiedad para que InicioView sepa si hay música sonando
+    private final javafx.beans.property.BooleanProperty isPlaying = new javafx.beans.property.SimpleBooleanProperty(false);
+    public javafx.beans.property.BooleanProperty isPlayingProperty() {
+        return isPlaying;
+    }
+
     // Componentes Ajustes (Hotkeys)
     private KeyCode keyPlayPause = KeyCode.P;
     private KeyCode keyStop = KeyCode.S;
@@ -932,16 +938,14 @@ public class MusicView {
 
         // [FIX] Botón de reproducción corregido para usar el mini web (embed) y actualizar título
         Button btnPlay = new Button("▶");
-        btnPlay.setTooltip(new Tooltip("Reproducir"));
-        btnPlay.setStyle("-fx-background-color: transparent; -fx-text-fill: #00ff00; -fx-cursor: hand; -fx-font-size: 18px; -fx-font-weight: bold;");
+        btnPlay.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 18px;");
         btnPlay.setOnAction(e -> {
             e.consume();
             playYoutubeVideo(videoId, title);
         });
 
         Button btnQueue = new Button("+");
-        btnQueue.setTooltip(new Tooltip("Añadir a la cola"));
-        btnQueue.setStyle("-fx-background-color: transparent; -fx-text-fill: #aaa; -fx-cursor: hand; -fx-font-size: 18px; -fx-font-weight: bold;");
+        btnQueue.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 18px;");
         btnQueue.setOnAction(e -> {
             e.consume();
             addToPlaylist(videoId);
@@ -1005,6 +1009,12 @@ public class MusicView {
                 Object result = webPlayer.getEngine().executeScript("var v = document.querySelector('video'); v ? v.ended : false;");
                 if (result instanceof Boolean && (Boolean) result) {
                     playNextInPlaylist();
+                }
+
+                // [NUEVO] Detectar estado de reproducción real para el widget de Inicio
+                Object playState = webPlayer.getEngine().executeScript("var v = document.querySelector('video'); v ? !v.paused : false;");
+                if (playState instanceof Boolean) {
+                    isPlaying.set((Boolean) playState);
                 }
 
                 // [NUEVO] Script para leer el título de la canción sonando y actualizar el overlay

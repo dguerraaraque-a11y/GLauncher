@@ -38,14 +38,28 @@ dir /s /b "%BASE_DIR%src\*.java" > sources.txt
 REM Excluir el instalador de la compilacion del juego
 findstr /v "Installer.java" sources.txt > sources_game.txt
 
-set "LIBS_CP="
-for /r "%BASE_DIR%lib" %%f in (*.jar) do (
-    set "LIBS_CP=!LIBS_CP!;%%f"
+set "LIBS_CP=."
+echo [INFO] Escaneando librerias en %BASE_DIR%lib...
+for /r "%BASE_DIR%\lib" %%f in (*.jar) do (
+    REM Solo agregar al CP lo que no sea una libreria base de JavaFX
+    echo %%~nxf | findstr /R /I "^javafx-" >nul
+    if errorlevel 1 (
+        set "LIBS_CP=!LIBS_CP!;%%f"
+        echo [LIB] Detectada: %%~nxf
+    )
 )
 
-"%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -d "%DIST_DIR%" @sources_game.txt
+REM Verificar si se encontraron librerias basicas (Gson por ejemplo)
+echo !LIBS_CP! | findstr /I "gson" >nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Fallo al compilar el juego.
+    echo [WARNING] No se encontro la libreria GSON en el classpath.
+    echo Asegurate de que Ver.bat haya descargado los .jar en la carpeta /lib
+)
+
+echo [INFO] Compilando con classpath: (oculto por longitud)
+"%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing,jdk.management -d "%DIST_DIR%" @sources_game.txt
+if %errorlevel% neq 0 (
+    echo [ERROR] Fallo al compilar el juego. Verifica que todas las librerias existan en la carpeta /lib
     pause
     exit /b
 )
@@ -63,7 +77,7 @@ echo set "BASE_DIR=%%~dp0"
 echo set "FX_LIB=%%BASE_DIR%%lib\javafx-sdk-17.0.13\lib"
 echo set "FX_BIN=%%BASE_DIR%%lib\javafx-sdk-17.0.13\bin"
 echo set "PATH=%%FX_BIN%%;%%PATH%%"
-echo start "" "javaw" --module-path "%%FX_LIB%%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing -cp "%%BASE_DIR%%;%%BASE_DIR%%lib\*" glauncher.GLauncher
+echo start "" "javaw" --module-path "%%FX_LIB%%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing,jdk.management -cp "%%BASE_DIR%%;%%BASE_DIR%%lib\*" glauncher.GLauncher
 ) > "%DIST_DIR%\GLauncher.bat"
 
 echo [4/6] Empaquetando juego en app.zip...

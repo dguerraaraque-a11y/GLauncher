@@ -8,15 +8,20 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.text.TextFlow;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.FileChooser;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.shape.Circle;
 import javafx.scene.paint.Color;
 import glauncher.MainView;
+import glauncher.utils.EmojiHandler;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -31,6 +36,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.function.Consumer;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -70,11 +76,11 @@ public class GChatView {
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(20));
-        root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.6); -fx-background-radius: 15;");
+        root.setStyle("-fx-background-color: transparent;"); // El fondo lo da el MainView
 
         if (authToken == null) {
             Label lblError = new Label("Debes iniciar sesión para usar GChat.");
-            lblError.setStyle("-fx-text-fill: white; -fx-font-size: 18px;");
+            lblError.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
             root.setCenter(lblError);
             return root;
         }
@@ -82,7 +88,7 @@ public class GChatView {
         // --- BARRA LATERAL (Amigos y Solicitudes) ---
         VBox sidebar = new VBox(10);
         sidebar.setPrefWidth(280);
-        sidebar.setStyle("-fx-background-color: rgba(0,0,0,0.3); -fx-background-radius: 10; -fx-padding: 10;");
+        sidebar.setStyle("-fx-background-color: rgba(20, 20, 20, 0.7); -fx-background-radius: 20; -fx-padding: 15; -fx-border-color: rgba(255,255,255,0.05); -fx-border-radius: 20;");
 
         Label lblFriends = new Label("GChat");
         lblFriends.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 20px;");
@@ -91,11 +97,11 @@ public class GChatView {
         HBox addFriendBox = new HBox(5);
         TextField txtAddFriend = new TextField();
         txtAddFriend.setPromptText("Añadir amigo (Usuario)");
-        txtAddFriend.setStyle("-fx-background-color: #333; -fx-text-fill: white;");
+        txtAddFriend.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-text-fill: white; -fx-background-radius: 8;");
         HBox.setHgrow(txtAddFriend, Priority.ALWAYS);
         
         Button btnAddFriend = new Button("+");
-        btnAddFriend.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold;");
+        btnAddFriend.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
         btnAddFriend.setOnAction(e -> {
             sendFriendRequest(txtAddFriend.getText());
             txtAddFriend.clear();
@@ -105,7 +111,7 @@ public class GChatView {
         // Campo de búsqueda de amigos
         searchFriendsField = new TextField();
         searchFriendsField.setPromptText("Buscar amigos...");
-        searchFriendsField.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-prompt-text-fill: #888; -fx-background-radius: 5;");
+        searchFriendsField.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-text-fill: white; -fx-prompt-text-fill: #888; -fx-background-radius: 10; -fx-padding: 8;");
         searchFriendsField.textProperty().addListener((obs, old, val) -> updateFriendList(fullFriendList));
 
         // Contenedores de listas
@@ -127,10 +133,10 @@ public class GChatView {
         btnRequests.setToggleGroup(filterGroup);
         btnFriends.setSelected(true);
 
-        String toggleStyle = "-fx-background-color: #444; -fx-text-fill: white; -fx-border-color: transparent; -fx-cursor: hand; -fx-background-radius: 5 0 0 5;";
-        String selectedToggleStyle = "-fx-background-color: #0078d7; -fx-text-fill: white; -fx-border-color: transparent; -fx-cursor: hand; -fx-background-radius: 5 0 0 5;";
+        String toggleStyle = "-fx-background-color: rgba(255,255,255,0.1); -fx-text-fill: #aaa; -fx-border-color: transparent; -fx-cursor: hand; -fx-background-radius: 10 0 0 10;";
+        String selectedToggleStyle = "-fx-background-color: #0078d7; -fx-text-fill: white; -fx-border-color: transparent; -fx-cursor: hand; -fx-background-radius: 10 0 0 10; -fx-font-weight: bold;";
         String toggleStyleRight = toggleStyle.replace("5 0 0 5", "0 5 5 0");
-        String selectedToggleStyleRight = selectedToggleStyle.replace("5 0 0 5", "0 5 5 0");
+        String selectedToggleStyleRight = selectedToggleStyle.replace("10 0 0 10", "0 10 10 0");
 
         btnFriends.setStyle(selectedToggleStyle);
         btnRequests.setStyle(toggleStyleRight);
@@ -167,9 +173,9 @@ public class GChatView {
         // Cabecera del Chat
         HBox chatHeader = new HBox(10);
         chatHeader.setAlignment(Pos.CENTER_LEFT);
-        chatHeader.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-padding: 15; -fx-background-radius: 10;");
+        chatHeader.setStyle("-fx-background-color: rgba(20, 20, 20, 0.6); -fx-padding: 15; -fx-background-radius: 20; -fx-border-color: rgba(255,255,255,0.05); -fx-border-radius: 20;");
         chatHeaderLabel = new Label("Chat");
-        chatHeaderLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+        chatHeaderLabel.setStyle("-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold;");
         
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -183,11 +189,11 @@ public class GChatView {
         HBox chatTools = new HBox(10);
         chatTools.setAlignment(Pos.CENTER_LEFT);
         chatTools.setPadding(new Insets(5, 10, 5, 10));
-        chatTools.setStyle("-fx-background-color: rgba(0,0,0,0.2); -fx-background-radius: 5;");
+        chatTools.setStyle("-fx-background-color: transparent;");
 
         searchChatField = new TextField();
         searchChatField.setPromptText("Buscar en el chat...");
-        searchChatField.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-font-size: 12px; -fx-background-radius: 15;");
+        searchChatField.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-text-fill: white; -fx-font-size: 12px; -fx-background-radius: 15; -fx-padding: 5 15;");
         searchChatField.setPrefWidth(200);
         searchChatField.textProperty().addListener((obs, oldVal, newVal) -> filterMessages(newVal));
 
@@ -213,7 +219,7 @@ public class GChatView {
         HBox inputBox = new HBox(10);
         messageInput = new TextField();
         messageInput.setPromptText("Escribe un mensaje...");
-        messageInput.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 20;");
+        messageInput.setStyle("-fx-background-color: #252525; -fx-text-fill: white; -fx-padding: 12; -fx-background-radius: 25; -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 25;");
         HBox.setHgrow(messageInput, Priority.ALWAYS);
 
         Button btnAttach = new Button("📎");
@@ -222,7 +228,7 @@ public class GChatView {
 
         Button btnEmoji = new Button("😀");
         btnEmoji.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-cursor: hand;");
-        btnEmoji.setOnAction(e -> showEmojiPicker());
+        btnEmoji.setOnAction(e -> showEmojiPicker(btnEmoji));
         
         Button btnSend = new Button("➤");
         btnSend.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-font-size: 16px; -fx-background-radius: 50; -fx-min-width: 40px; -fx-min-height: 40px; -fx-cursor: hand;");
@@ -344,13 +350,16 @@ public class GChatView {
             HBox row = new HBox(10);
             row.setAlignment(Pos.CENTER_LEFT);
             row.setPadding(new Insets(8));
-            row.setStyle("-fx-background-color: " + (id == activeFriendId ? "rgba(0,120,215,0.4)" : "transparent") + "; -fx-background-radius: 5; -fx-cursor: hand;");
+            String rowBg = (id == activeFriendId ? "rgba(0,120,215,0.25)" : "transparent");
+            String rowBorder = (id == activeFriendId ? "#0078d7" : "transparent");
+            row.setStyle("-fx-background-color: " + rowBg + "; -fx-background-radius: 12; -fx-cursor: hand; -fx-border-color: " + rowBorder + "; -fx-border-width: 1; -fx-border-radius: 12;");
             
-            Circle avatar = new Circle(15, Color.GRAY);
+            Circle avatar = new Circle(18, Color.web("#444"));
+            avatar.setStroke(Color.web("#666"));
 
             VBox info = new VBox(2);
             Label lblName = new Label(username);
-            lblName.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+            lblName.setStyle("-fx-text-fill: " + (id == activeFriendId ? "white" : "#ccc") + "; -fx-font-weight: bold;");
             Label lblStatus = new Label(status);
             lblStatus.setStyle("-fx-text-fill: #aaa; -fx-font-size: 10px;");
             info.getChildren().addAll(lblName, lblStatus);
@@ -359,8 +368,8 @@ public class GChatView {
             row.setOnMouseClicked(ev -> selectFriend(id, username));
             
             // Efecto Hover
-            row.setOnMouseEntered(ev -> { if(id != activeFriendId) row.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-background-radius: 5; -fx-cursor: hand;"); });
-            row.setOnMouseExited(ev -> { if(id != activeFriendId) row.setStyle("-fx-background-color: transparent; -fx-background-radius: 5; -fx-cursor: hand;"); });
+            row.setOnMouseEntered(ev -> { if(id != activeFriendId) row.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-background-radius: 12; -fx-cursor: hand;"); });
+            row.setOnMouseExited(ev -> { if(id != activeFriendId) row.setStyle("-fx-background-color: transparent; -fx-background-radius: 12; -fx-cursor: hand;"); });
 
             friendListContainer.getChildren().add(row);
         }
@@ -492,11 +501,12 @@ public class GChatView {
                 });
                 contentNode = btnFile;
             } else {
-                Label lblMsg = new Label(content);
-                lblMsg.setWrapText(true);
-                lblMsg.setMaxWidth(300);
-                lblMsg.setStyle("-fx-text-fill: white; -fx-background-color: " + (isMe ? "#0078d7" : "#444") + "; -fx-padding: 8 12; -fx-background-radius: 15;");
-                contentNode = lblMsg;
+                // [MEJORA] Uso de EmojiHandler para renderizar texto y emojis 3D Fluent
+                TextFlow emojiFlow = EmojiHandler.render(content, 14, Color.WHITE);
+                emojiFlow.setMaxWidth(350);
+                String bubbleStyle = isMe ? "linear-gradient(to bottom right, #0078d7, #005a9e)" : "rgba(255,255,255,0.1)";
+                emojiFlow.setStyle("-fx-background-color: " + bubbleStyle + "; -fx-padding: 10 15; -fx-background-radius: 18; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 5, 0, 0, 1);");
+                contentNode = emojiFlow;
             }
 
             // Etiqueta para la hora
@@ -567,12 +577,10 @@ public class GChatView {
                         VBox messageUnit = new VBox(3);
                         messageUnit.setAlignment(isMe ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
                         
-                        Label lblMsg = new Label(content);
-                        lblMsg.setWrapText(true);
-                        lblMsg.setMaxWidth(300);
-                        lblMsg.setStyle("-fx-text-fill: white; -fx-background-color: " + (isMe ? "#0078d7" : "#444") + "; -fx-padding: 8 12; -fx-background-radius: 15;");
-                        
-                        messageUnit.getChildren().add(lblMsg);
+                        TextFlow emojiFlow = EmojiHandler.render(content, 14, Color.WHITE);
+                        emojiFlow.setMaxWidth(350);
+                        emojiFlow.setStyle("-fx-background-color: " + (isMe ? "#0078d7" : "#333") + "; -fx-padding: 10 15; -fx-background-radius: 18;");
+                        messageUnit.getChildren().add(emojiFlow);
                         messageUnit.setUserData(line);
                         messagesContainer.getChildren().add(messageUnit);
                     }
@@ -686,25 +694,128 @@ public class GChatView {
         }).start();
     }
 
-    private void showEmojiPicker() {
-        Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle("Emojis");
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+    private void showEmojiPicker(Button anchor) {
+        // Panel estilo Windows 10 para emojis
+        Stage pickerStage = new Stage();
+        pickerStage.initStyle(StageStyle.TRANSPARENT);
+        pickerStage.initOwner(messageInput.getScene().getWindow());
 
-        FlowPane flow = new FlowPane();
-        flow.setPadding(new Insets(10));
-        flow.setHgap(5);
-        flow.setVgap(5);
+        VBox container = new VBox();
+        container.setPrefSize(320, 380);
+        container.setStyle("-fx-background-color: #2b2b2b; -fx-background-radius: 10; -fx-border-color: #444; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 5);");
 
-        String[] emojis = {"😀", "😂", "😍", "🤔", "👍", "👎", "❤️", "🔥", "🚀", "🎉", "💀", "😭", "💯", "🙏", "👀", "👋"};
-        for (String emoji : emojis) {
-            Button btn = new Button(emoji);
-            btn.setStyle("-fx-font-size: 20px; -fx-background-color: transparent; -fx-cursor: hand;");
-            btn.setOnAction(e -> messageInput.appendText(emoji));
-            flow.getChildren().add(btn);
+        // Buscador superior (Estético)
+        TextField search = new TextField();
+        search.setPromptText("Buscar emoji...");
+        search.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-border-color: transparent transparent #444 transparent; -fx-padding: 10; -fx-prompt-text-fill: #888;");
+
+        // Contenido: Cuadrícula con Scroll
+        FlowPane emojiGrid = new FlowPane();
+        emojiGrid.setPadding(new Insets(10));
+        emojiGrid.setHgap(8);
+        emojiGrid.setVgap(8);
+        emojiGrid.setAlignment(Pos.TOP_LEFT);
+
+        ScrollPane scroll = new ScrollPane(emojiGrid);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        VBox.setVgrow(scroll, Priority.ALWAYS);
+
+        // Categorías y Datos (Fluent 3D y Clásicos)
+        String[][] categories = {
+            {"Caras", "1f600", "1f601", "1f602", "1f603", "1f604", "1f605", "1f606", "1f60d", "1f60e", "1f618", "1f61c", "1f929", "1f92a", "1f973", "1f634"},
+            {"Gente", "1f44b", "1f44c", "1f44d", "1f44e", "1f44f", "1f64c", "1f64f", "1f91d", "1f4aa", "1f919", "1f595", "1f91f"},
+            {"Iconos", "2764", "1f525", "2728", "1f4ab", "1f4af", "1f4a2", "1f4a6", "1f4a4", "1f4a3", "1f480", "1f47e"},
+            {"Clásicos", ":)", ":(", ":D", "XD", ";)", ":'(", "B)", ":|", ":O", ":P", ">:(", "O:)", "Xo", "<3", "o/", "¯\\_(ツ)_/¯"}
+        };
+
+        // Lógica para cargar categorías
+        Consumer<String[]> loadCategory = (cat) -> {
+            emojiGrid.getChildren().clear();
+            for (int i = 1; i < cat.length; i++) {
+                String val = cat[i];
+                Button btn = new Button();
+                btn.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 5; -fx-background-radius: 5;");
+                
+                btn.setOnMouseEntered(ev -> btn.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-cursor: hand; -fx-padding: 5; -fx-background-radius: 5;"));
+                btn.setOnMouseExited(ev -> btn.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 5; -fx-background-radius: 5;"));
+
+                if (val.length() >= 4 && !val.contains(":") && !val.contains(")") && !val.contains("(")) {
+                    // Es un emoji Fluent (Hexadecimal)
+                    ImageView iv = new ImageView();
+                    try {
+                        Image img = new Image("https://cdn.jsdelivr.net/npm/@lobehub/fluent-emoji-3d@1.1.0/assets/" + val + ".webp", 26, 26, true, true, true);
+                        iv.setImage(img);
+                        btn.setGraphic(iv);
+                        btn.setOnAction(ev -> {
+                            try {
+                                int codePoint = Integer.parseInt(val, 16);
+                                messageInput.appendText(new String(Character.toChars(codePoint)));
+                            } catch (Exception ex) {}
+                        });
+                    } catch (Exception ex) {}
+                } else {
+                    // Es un emoticono de texto clásico (ej: Xo)
+                    btn.setText(val);
+                    btn.setStyle(btn.getStyle() + "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
+                    btn.setOnAction(ev -> messageInput.appendText(val + " "));
+                }
+                emojiGrid.getChildren().add(btn);
+            }
+        };
+
+        // Barra inferior de navegación
+        HBox footer = new HBox(12);
+        footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(8));
+        footer.setStyle("-fx-background-color: #222; -fx-background-radius: 0 0 10 10;");
+
+        for (String[] cat : categories) {
+            Button catBtn = new Button();
+            catBtn.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 2;");
+            
+            if (cat[0].equals("Clásicos")) {
+                catBtn.setText(";)");
+                catBtn.setStyle(catBtn.getStyle() + "-fx-text-fill: #888; -fx-font-weight: bold;");
+            } else {
+                ImageView iv = new ImageView(new Image("https://cdn.jsdelivr.net/npm/@lobehub/fluent-emoji-3d@1.1.0/assets/" + cat[1] + ".webp", 18, 18, true, true, true));
+                catBtn.setGraphic(iv);
+            }
+            
+            catBtn.setOnAction(e -> loadCategory.accept(cat));
+            footer.getChildren().add(catBtn);
         }
-        dialog.getDialogPane().setContent(flow);
-        dialog.showAndWait();
+
+        // Carga inicial (Caritas)
+        loadCategory.accept(categories[0]);
+
+        container.getChildren().addAll(search, scroll, footer);
+
+        // Posicionamiento inteligente encima del botón del chat
+        javafx.geometry.Point2D screenPos = anchor.localToScreen(0, 0);
+        if (screenPos != null) {
+            pickerStage.setX(screenPos.getX() - 140);
+            pickerStage.setY(screenPos.getY() - 390);
+        }
+
+        // Cerrar si se hace clic fuera
+        pickerStage.focusedProperty().addListener((obs, old, val) -> {
+            if (!val) pickerStage.close();
+        });
+
+        Scene scene = new Scene(container);
+        scene.setFill(null);
+        pickerStage.setScene(scene);
+        pickerStage.show();
+        
+        // Animación suave de aparición
+        container.setOpacity(0);
+        container.setTranslateY(10);
+        javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(200), container);
+        ft.setToValue(1);
+        javafx.animation.TranslateTransition tt = new javafx.animation.TranslateTransition(javafx.util.Duration.millis(200), container);
+        tt.setToY(0);
+        new javafx.animation.ParallelTransition(ft, tt).play();
     }
 
     private String sendMultipartRequest(String endpoint, File file) throws IOException {

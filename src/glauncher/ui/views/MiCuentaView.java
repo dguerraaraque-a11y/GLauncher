@@ -136,6 +136,11 @@ public class MiCuentaView {
         root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.7); -fx-background-radius: 20; -fx-padding: 40;");
         root.setMaxSize(500, 400);
 
+        // [FIX] Escala propia y posición elevada para el Login
+        root.setScaleX(0.9);
+        root.setScaleY(0.9);
+        root.setTranslateY(-50); // Sube la GUI para alejarla de la navBar
+
         Label title = new Label("Mi Cuenta");
         title.setStyle("-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;");
 
@@ -159,14 +164,14 @@ public class MiCuentaView {
         Button btnSimulate = new Button("Simular Login (Dev)");
         btnSimulate.setStyle("-fx-background-color: transparent; -fx-text-fill: #555;");
         btnSimulate.setOnAction(e -> {
-            String user = "DevUser";
-            String uuid = java.util.UUID.randomUUID().toString();
-            String namePart = user.toLowerCase();
-            String token = "s3ss10n_" + (System.currentTimeMillis() / 1000) + "_" + namePart;
-            
+            String username = "DevUser";
+            String uuid = java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            String namePrefix = username.replaceAll("[a-z]", "").toLowerCase();
+            if (namePrefix.isEmpty()) namePrefix = username.substring(0, Math.min(username.length(), 4)).toLowerCase();
+            String token = "s3ss10n_" + ((System.currentTimeMillis() / 1000) % 1000000000) + "_" + namePrefix;
+
             isLoggedIn = true;
-            saveSession("DevUser", "dummy_token_123", "00000000-0000-0000-0000-000000000000", "offline"); // Guardar sesión simulada
-            saveSession(user, token, uuid, "offline");
+            saveSession(username, token, uuid, "offline");
             showDashboard();
         });
 
@@ -185,6 +190,11 @@ public class MiCuentaView {
         BorderPane dashboard = new BorderPane();
         dashboard.setStyle("-fx-background-color: rgba(20, 20, 20, 0.9); -fx-background-radius: 15;");
         dashboard.setMaxSize(900, 600);
+
+        // [FIX] Escala propia y posición elevada para el Dashboard (Skins, Amigos, etc.)
+        dashboard.setScaleX(0.95);
+        dashboard.setScaleY(0.95);
+        dashboard.setTranslateY(-40); // Evita que la barra de navegación tape los controles inferiores
 
         // --- Sidebar ---
         VBox sidebar = new VBox(15);
@@ -893,11 +903,13 @@ public class MiCuentaView {
                 }
             }
             session.addProperty("username", newName);
-            // Mantener otros datos si existen
             
             // [NUEVO] Al cambiar nombre, regenerar identidad offline para mayor realismo
-            String newUuid = java.util.UUID.randomUUID().toString();
-            String newToken = "s3ss10n_" + (System.currentTimeMillis() / 1000) + "_" + newName.toLowerCase().replaceAll("[^a-z0-9]", "");
+            String newUuid = java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + newName).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            String namePrefix = newName.replaceAll("[a-z]", "").toLowerCase();
+            if (namePrefix.isEmpty()) namePrefix = newName.substring(0, Math.min(newName.length(), 4)).toLowerCase();
+            String newToken = "s3ss10n_" + ((System.currentTimeMillis() / 1000) % 1000000000) + "_" + namePrefix;
+            
             session.addProperty("uuid", newUuid);
             session.addProperty("token", newToken);
 
@@ -1125,6 +1137,10 @@ public class MiCuentaView {
         grid.setHgap(10);
         grid.setVgap(10);
         grid.setPadding(new Insets(20, 20, 10, 10));
+
+        // [FIX] Escala para el asistente de perfil manual
+        grid.setScaleX(0.95);
+        grid.setScaleY(0.95);
 
         // Título personalizado en lugar de HeaderText para mejor control de estilo
         Label lblHeader = new Label("Configura tu identidad");

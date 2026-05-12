@@ -53,6 +53,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.io.BufferedInputStream;
 import java.io.FileOutputStream;
+import java.util.Arrays;
+import java.util.List;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,7 +83,7 @@ public class MusicView {
     private MediaView localMediaView; // [NUEVO] Vista para video
     private StackPane mediaContainer; // [NUEVO] Contenedor de medios
     private Label lblLocalStatus;
-    private Button btnLocalPlayPause; // [NUEVO] Referencia para cambiar icono
+    private Button btnLocalPlayPause; // [FIX] Campo para controlar el botón de Play/Pause local
 
     // Componentes YouTube
     private TextField searchField;
@@ -91,6 +93,12 @@ public class MusicView {
     private Label lblOverlayTitle; // [NUEVO] Título en overlay
     private WebView webPlayer;
     // private final String YT_API_KEY = "AIzaSyAlGmxmZbvkEKjVGLD487giPvl10wO-C9k"; // Eliminado: La web de GMusic maneja su propia API Key
+    
+    // [NUEVO] Lista de API Keys de YouTube como fallback
+    private static final List<String> FALLBACK_YT_API_KEYS = Arrays.asList(
+        "AIzaSyBXQ-ItiJlUuZQq4nR2XvxIqaTkboQDeus",
+        "AIzaSyAlGmxmZbvkEKjVGLD487giPvl10wO-C9k"
+    );
     private final Gson gson = new Gson();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final List<String> playlist = new ArrayList<>();
@@ -171,9 +179,6 @@ public class MusicView {
             return instance.root;
         }
         instance = this;
-
-        // [NUEVO] Sincronizar recursos web de GMusic al abrir la pestaña
-        syncGMusicWeb();
 
         // [NUEVO] Detectar resolución para ajuste automático (Canaima/Laptop)
         Rectangle2D screen = Screen.getPrimary().getBounds();
@@ -596,14 +601,36 @@ public class MusicView {
         // [FIX] User-Agent actualizado a Chrome 133 para mejor compatibilidad y calidad
         webPlayer.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
         webPlayer.setContextMenuEnabled(false); // Desactivar menú contextual para ahorrar recursos
+
+        // [NUEVO] RESTRICCIÓN DE SEGURIDAD Y OPTIMIZACIÓN DE CARGA
+        webPlayer.getEngine().locationProperty().addListener((obs, old, newVal) -> {
+            if (newVal != null && !newVal.isEmpty() && !newVal.equals("about:blank")) {
+                // Bloquear cualquier sitio que no sea YouTube
+                if (!newVal.contains("youtube.com") && !newVal.contains("youtu.be")) {
+                    Platform.runLater(() -> webPlayer.getEngine().load("about:blank"));
+                    glauncher.MainView.showNotification("Seguridad", "Acceso bloqueado: Solo se permite YouTube.", "warning");
+                }
+            }
+        });
+
+        // [NUEVO] INYECCIÓN DE LIMPIEZA (Eliminar basura de YouTube y animaciones)
+        webPlayer.getEngine().getLoadWorker().stateProperty().addListener((obs, old, state) -> {
+            if (state == javafx.concurrent.Worker.State.SUCCEEDED) {
+                String jsCleanup = "var style = document.createElement('style');" +
+                    "style.innerHTML = '#masthead-container, #secondary, #comments, #footer, #columns #secondary, ytd-live-chat-frame, #chat, #merch-shelf, .ytp-chrome-top, .ytp-show-cards-title { display: none !important; } " +
+                    "#primary, #primary-inner, ytd-watch-flexy { padding: 0 !important; margin: 0 !important; } " +
+                    "ytd-page-manager { margin-top: 0 !important; } " +
+                    "video { width: 100vw !important; height: 100vh !important; object-fit: contain !important; } " +
+                    "* { transition: none !important; animation: none !important; }'; " + // [OPTIMIZACION] Sin animaciones = Menos CPU
+                    "document.head.appendChild(style);";
+                webPlayer.getEngine().executeScript(jsCleanup);
+            }
+        });
         
         // [OPTIMIZACION] Cachear el nodo WebView para rendimiento
         webPlayer.setCache(true);
         webPlayer.setCacheHint(CacheHint.SPEED);
         
-        // [NUEVO] Carga inicial de la web GMusic con soporte Offline
-        loadGMusicWeb();
-
         Label lblNowPlaying = new Label("Reproductor");
         lblNowPlaying.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
         
@@ -886,7 +913,13 @@ public class MusicView {
                 }
             } catch (Exception e) { e.printStackTrace(); }
         }
-        return null; // Ya no hay fallback a una clave codificada
+        
+        
+        // [FIX] Usar API Keys de fallback si no se encuentra en settings.json
+        if (!FALLBACK_YT_API_KEYS.isEmpty()) {
+            return FALLBACK_YT_API_KEYS.get(0);
+        }
+        return null;
     }
 
     private String extractVideoId(String url) {
@@ -1092,7 +1125,9 @@ public class MusicView {
         if (enabled) {
             // Reducir calidad visual o desactivar efectos para ganar FPS
             if (webPlayer != null) webPlayer.setEffect(null);
-            root.setStyle("-fx-background-color: #111;"); // Fondo sólido simple (menos carga GPU)
+            root.setStyle("-fx-background-color: #050505;"); // Fondo negro puro (ahorro energía/GPU)
+            // Bajar el intervalo de monitoreo para ahorrar CPU
+            if (monitorTimer != null) monitorTimer.setRate(0.5); 
             
             // [NUEVO] Activar modo audio automáticamente en modo bajo rendimiento
             if (chkAudioOnly != null) chkAudioOnly.setSelected(true);
@@ -1100,6 +1135,7 @@ public class MusicView {
             root.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-background-radius: 15;");
             // Restaurar si se desactiva
             if (chkAudioOnly != null) chkAudioOnly.setSelected(false);
+            if (monitorTimer != null) monitorTimer.setRate(1.0);
         }
     }
 
@@ -1247,6 +1283,9 @@ public class MusicView {
                 ImageView icon = new ImageView(new Image(iconFile.toURI().toString()));
                 icon.setFitWidth(20);
                 icon.setFitHeight(20);
+                // [NUEVO] Forzar iconos blancos mediante efecto de brillo si la imagen es oscura
+                javafx.scene.effect.ColorAdjust whiteEffect = new javafx.scene.effect.ColorAdjust();
+                whiteEffect.setBrightness(1.0); icon.setEffect(whiteEffect);
                 btn.setGraphic(icon);
             }
         } catch (Exception e) {
@@ -1259,94 +1298,5 @@ public class MusicView {
         });
         
         return btn;
-    }
-
-    // --- [NUEVO] Lógica de Sincronización Offline GMusic ---
-
-    private void syncGMusicWeb() {
-        executor.submit(() -> {
-            try {
-                // Descargar el repositorio desde GitHub (rama main)
-                URL url = new URL("https://github.com/dguerraaraque-a11y/GMusic-for-GLauncher/archive/refs/heads/main.zip");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestProperty("User-Agent", "GLauncher-Music-Sync");
-                
-                File tempZip = new File(DATA_DIR, "gmusic_web.zip");
-                try (InputStream in = new BufferedInputStream(conn.getInputStream());
-                     FileOutputStream out = new FileOutputStream(tempZip)) {
-                    byte[] buffer = new byte[4096];
-                    int n;
-                    while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
-                }
-                
-                // Descomprimir en la carpeta designada
-                unzip(tempZip, Paths.GMUSIC_DIR);
-                tempZip.delete();
-                System.out.println("[GMusic] Recursos web sincronizados correctamente.");
-            } catch (Exception e) {
-                System.err.println("[GMusic] Error al sincronizar recursos web: " + e.getMessage());
-            }
-        });
-    }
-
-    private void unzip(File zipFile, File destDir) throws IOException {
-        if (!destDir.exists()) destDir.mkdirs();
-        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                File file = new File(destDir, entry.getName());
-                if (entry.isDirectory()) {
-                    file.mkdirs();
-                } else {
-                    if (file.getParentFile() != null) file.getParentFile().mkdirs();
-                    try (FileOutputStream fos = new FileOutputStream(file)) {
-                        byte[] buffer = new byte[4096];
-                        int n;
-                        while ((n = zis.read(buffer)) != -1) fos.write(buffer, 0, n);
-                    }
-                }
-                zis.closeEntry();
-            }
-        }
-    }
-
-    private void loadGMusicWeb() {
-        String remoteUrl = "https://gmusic-snowy.vercel.app/";
-        Platform.runLater(() -> {
-            // Intentar cargar la versión online
-            webPlayer.getEngine().load(remoteUrl);
-            
-            // Monitor de carga para detectar fallos (sin internet)
-            webPlayer.getEngine().getLoadWorker().exceptionProperty().addListener((obs, oldEx, newEx) -> {
-                if (newEx != null) {
-                    // Si hay error de red, buscar el index.html localmente como base
-                    File localIndex = findIndexHtml(Paths.GMUSIC_DIR);
-                    if (localIndex != null && localIndex.exists()) {
-                        webPlayer.getEngine().load(localIndex.toURI().toString());
-                        glauncher.MainView.showNotification("GMusic Offline", "Sin conexión. Cargando archivos locales...", "warning");
-                        System.out.println("[GMusic] Cargando versión offline local.");
-                    }
-                }
-            });
-        });
-    }
-
-    /**
-     * Busca recursivamente el archivo index.html.
-     * Al cargar este archivo desde una URI local, el WebView permite la navegación
-     * a play.html y profile.html mediante rutas relativas automáticamente.
-     */
-    private File findIndexHtml(File dir) {
-        if (!dir.exists()) return null;
-        File[] files = dir.listFiles();
-        if (files == null) return null;
-        for (File f : files) {
-            if (f.getName().equalsIgnoreCase("index.html")) return f;
-            if (f.isDirectory()) {
-                File found = findIndexHtml(f);
-                if (found != null) return found;
-            }
-        }
-        return null;
     }
 }

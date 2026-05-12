@@ -19,7 +19,7 @@ public class UpdateChecker {
     
     // VERSIÓN ACTUAL DE TU APLICACIÓN JAVA (¡IMPORTANTE!)
     // Debes cambiar este valor cada vez que compiles una nueva versión del launcher.
-    private static final String CURRENT_VERSION = "1.0.0"; 
+    private static final String CURRENT_VERSION = "1.3.0"; 
 
     public static void checkForUpdates() {
         // Se ejecuta en un hilo separado para no congelar la interfaz de usuario
@@ -33,7 +33,7 @@ public class UpdateChecker {
                 conn.setReadTimeout(5000);
 
                 if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) { // Código 200
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
                     JsonObject response = new Gson().fromJson(reader, JsonObject.class);
                     
                     // Leemos los campos del version.json que creamos
@@ -53,7 +53,7 @@ public class UpdateChecker {
                 }
             } catch (Exception e) {
                 System.out.println("[UpdateChecker] No se pudo verificar actualizaciones: " + e.getMessage());
-                // Opcional: podrías mostrar un pequeño aviso al usuario de que no se pudo comprobar.
+                Platform.runLater(() -> MainView.showNotification("Update Error", "No se pudo conectar con el servidor de actualizaciones.", "warning"));
             }
         });
         thread.setDaemon(true); // El hilo no impedirá que la aplicación se cierre

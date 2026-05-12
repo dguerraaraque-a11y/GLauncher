@@ -1,4 +1,4 @@
-@echo off
+echo off
 setlocal EnableDelayedExpansion
 
 REM --- CONFIGURACION DE RUTAS ---
@@ -6,7 +6,12 @@ set "BASE_DIR=%~dp0"
 :: Limpiar la ruta para evitar problemas de doble slash
 if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
 
-set "FX_LIB=%BASE_DIR%\lib\javafx-sdk-17.0.13\lib"
+REM --- BUSQUEDA DINAMICA DE JAVAFX ---
+if exist "%BASE_DIR%\javafx-sdk\lib" (
+    set "FX_LIB=%BASE_DIR%\javafx-sdk\lib"
+) else (
+    set "FX_LIB=C:\Program Files\Java\javafx-sdk-17.0.13\lib"
+)
 set "OUT_DIR=%BASE_DIR%\out"
 set "SOURCES_FILE=%BASE_DIR%\sources.txt"
 set "LOG_DIR=%BASE_DIR%\logs"
@@ -141,52 +146,84 @@ goto main_loop
     REM Matar la instancia anterior de la aplicacion si se esta ejecutando
     taskkill /F /FI "WINDOWTITLE eq GLauncherDev" >nul 2>&1
 
-    echo [INFO] Generando lista de archivos fuente (.java)...
+    echo [INFO] Limpiando compilacion anterior...
+    if exist "%OUT_DIR%" rmdir /s /q "%OUT_DIR%"
     if exist "%SOURCES_FILE%" del /F /Q "%SOURCES_FILE%"
     
-    :: Usar dir directamente es mas fiable que un bucle for para redirigir a un archivo
-    dir /s /b "%BASE_DIR%\src\*.java" > "%SOURCES_FILE%" 2>nul
+    REM [FIX] Excluir carpetas de agentes, instalador y archivos obsoletos como Splash
+    REM Esto evita que javac colapse por intentar compilar archivos duplicados o con errores.
+    dir /s /b "%BASE_DIR%\src\glauncher\*.java" | findstr /v /i "agent" | findstr /v /i "installer" | findstr /v /i "Splash" > "%SOURCES_FILE%" 2>nul
     
     if not exist "%SOURCES_FILE%" (
         echo [ERROR] No se encontraron archivos fuente en %BASE_DIR%\src
-        goto :eof
+        pause & exit /b
     )
     
     echo [INFO] Compilando proyecto...
     if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
-    "%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing,jdk.management -d "%OUT_DIR%" @"%SOURCES_FILE%"
-    if !errorlevel! neq 0 ( echo [ERROR] Error de compilacion detectado. & goto :eof )
+    "%JAVAC_CMD%" -encoding UTF-8 -cp "!LIBS_CP!" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.graphics,javafx.media,javafx.web,javafx.swing,javafx.fxml,javafx.base,jdk.management,jdk.crypto.ec -d "%OUT_DIR%" @"%SOURCES_FILE%" || (
+        echo [ERROR] Error de compilacion detectado. 
+        echo [ERROR] Error de compilacion detectado. Revisa los errores arriba.
+        pause & goto :eof 
+    )
 
     REM --- Compilar y empaquetar el Agente de Skins ---
     echo [AGENT] Compilando Skin Agent...
-    set "AGENT_SRC=%BASE_DIR%src\glauncher\agent\SkinAgent.java"
+    set "AGENT_SRC=%BASE_DIR%\src\glauncher\agent\SkinAgent.java"
     set "AGENT_OUT=%OUT_DIR%\agent_build"
     set "AGENT_JAR_NAME=GLauncherSkinAgent.jar"
     set "AGENT_TARGET_DIR=%APPDATA%\.glauncher\agents"
 
     if exist "%AGENT_SRC%" (
         if not exist "%AGENT_OUT%" mkdir "%AGENT_OUT%"
-        "%JAVAC_CMD%" -cp "!LIBS_CP!" -d "%AGENT_OUT%" "%AGENT_SRC%"
+        "%JAVAC_CMD%" -encoding UTF-8 -source 8 -target 8 -cp "!LIBS_CP!" -d "%AGENT_OUT%" "%AGENT_SRC%"
         if !errorlevel! neq 0 ( echo [ERROR] Error de compilacion del Agente. & goto :eof )
         
+        echo [AGENT] Integrando dependencias (Javassist)...
+        pushd "%AGENT_OUT%"
+        for %%j in ("%BASE_DIR%\lib\*.jar") do (
+            echo %%~nxj | findstr /I "javassist" >nul
+            if !errorlevel! == 0 ( "%JAR_CMD%" xf "%%j" )
+        )
+        if exist "META-INF" rmdir /s /q "META-INF"
+        popd
+
         echo [AGENT] Creando manifest...
         (echo Premain-Class: glauncher.agent.SkinAgent) > "%AGENT_OUT%\MANIFEST.MF"
         
         echo [AGENT] Empaquetando %AGENT_JAR_NAME%...
-        "%JAR_CMD%" cfm "%BASE_DIR%%AGENT_JAR_NAME%" "%AGENT_OUT%\MANIFEST.MF" -C "%AGENT_OUT%" .
+        "%JAR_CMD%" cfm "%BASE_DIR%\%AGENT_JAR_NAME%" "%AGENT_OUT%\MANIFEST.MF" -C "%AGENT_OUT%" .
         if not exist "%AGENT_TARGET_DIR%" mkdir "%AGENT_TARGET_DIR%"
-        copy /Y "%BASE_DIR%%AGENT_JAR_NAME%" "%AGENT_TARGET_DIR%\" > nul
+        copy /Y "%BASE_DIR%\%AGENT_JAR_NAME%" "%AGENT_TARGET_DIR%\" > nul
     )
 
     echo [INFO] Sincronizando recursos (assets)...
     if exist "%BASE_DIR%\assets" ( xcopy /D /S /E /Y /I "%BASE_DIR%\assets" "%OUT_DIR%\assets" >nul )
 
     echo [WATCHER] Compilacion exitosa. Iniciando aplicacion...
-    
+    if not exist "%OUT_DIR%\assets" echo [WARN] La carpeta de assets no se encontro en el output.
+
     if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
-    echo [INFO] La salida de la aplicacion se guardara en: !LOG_FILE!
-    set "LAUNCH_CMD="%JAVA_CMD%" --module-path "%FX_LIB%" --add-modules javafx.controls,javafx.media,javafx.web,javafx.swing,jdk.management -cp "!LIBS_CP!" glauncher.GLauncher"
-    start "GLauncherDev" cmd /c "!LAUNCH_CMD! > "!LOG_FILE!" 2>&1"
+    echo [INFO] ---------------------------------------------------
+    echo [INFO] Iniciando GLauncher...
+    echo [INFO] Si la app se cierra, el error aparecera aqui abajo.
+    
+    REM Añadimos java.desktop explícitamente por el uso de Desktop en UpdateChecker
+    set "LAUNCH_OPTS=--module-path "%FX_LIB%" --add-modules javafx.controls,javafx.graphics,javafx.media,javafx.web,javafx.swing,javafx.fxml,javafx.base,jdk.management,jdk.crypto.ec,java.desktop -cp "!LIBS_CP!""
+    
+    REM Redirigir errores a la consola y a un archivo para que no se pierdan
+    "%JAVA_CMD%" !LAUNCH_OPTS! glauncher.GLauncher > "%LOG_FILE%" 2>&1
+    
+    if !errorlevel! neq 0 (
+        echo.
+        echo ==================================================
+        echo           DETALLES DEL CRASH DETECTADO
+        echo ==================================================
+        if exist "%LOG_FILE%" type "%LOG_FILE%"
+        echo.
+        echo [FATAL] La aplicacion se cerro con codigo !errorlevel!
+        pause 
+    )
 goto :eof
 
 pause

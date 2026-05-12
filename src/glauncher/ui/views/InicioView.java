@@ -30,9 +30,12 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.Priority;
 import javafx.scene.text.Font;
 import javafx.scene.paint.Color;
+import javafx.scene.control.ListCell;
 import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
 import javafx.stage.Stage;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.web.WebView;
@@ -78,6 +81,7 @@ public class InicioView {
     private VBox devConsole;
     private TextArea devConsoleOutput;
     private Label lblUser;
+    private ComboBox<String> versionSelector;
     private Circle avatar;
     private long lastSessionModified = 0;
     
@@ -143,7 +147,7 @@ public class InicioView {
         VBox sidebar = new VBox(20);
         sidebar.setAlignment(Pos.TOP_CENTER);
         sidebar.setPrefWidth(280);
-        sidebar.setPadding(new Insets(30));
+        sidebar.setPadding(new Insets(15)); // [REDUCIDO] Menos padding para Canaimas
         // [MODIFICADO] Barra lateral transparente con widgets flotantes (Estilo Moderno)
         sidebar.setStyle("-fx-background-color: transparent;"); 
 
@@ -217,21 +221,47 @@ public class InicioView {
 
         // Selector de Versiones
         // 2. Selector de Versiones
-        ComboBox<String> versionSelector = new ComboBox<>();
+        versionSelector = new ComboBox<>();
         versionSelector.setPromptText("Seleccionar Versión");
         versionSelector.setPrefWidth(250);
         versionSelector.setPrefHeight(45);
-        versionSelector.setStyle("-fx-font-size: 14px; -fx-base: #222; -fx-text-fill: white; -fx-background-radius: 3;");
+        versionSelector.setVisibleRowCount(8); // [NUEVO] Scroll después de 8 versiones
+        
+        // [MEJORA] Estilo Moderno y CellFactory para soportar muchas versiones con scroll
+        versionSelector.setStyle("-fx-font-size: 14px; -fx-base: #222; -fx-text-fill: white; -fx-background-radius: 5; -fx-border-color: #444; -fx-border-radius: 5; -fx-cursor: hand;");
+        
+        versionSelector.setCellFactory(lv -> new ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("-fx-background-color: transparent;");
+                } else {
+                    setText(item);
+                    setStyle("-fx-text-fill: white; -fx-padding: 10; -fx-background-color: #1a1a1a;");
+                    this.setOnMouseEntered(e -> setStyle("-fx-text-fill: white; -fx-padding: 10; -fx-background-color: #0078d7;"));
+                    this.setOnMouseExited(e -> setStyle("-fx-text-fill: white; -fx-padding: 10; -fx-background-color: #1a1a1a;"));
+                }
+            }
+        });
         
         // Cargar versiones descargadas
-        List<String> versions = getDownloadedVersions();
-        if (versions.isEmpty()) {
-            versionSelector.getItems().add("Sin versiones instaladas");
-            versionSelector.getSelectionModel().selectFirst();
-        } else {
-            versionSelector.getItems().addAll(versions);
-            versionSelector.getSelectionModel().selectFirst();
-        }
+        refreshVersionList();
+
+        // [NUEVO] Hilo de monitoreo para actualizar la lista automáticamente
+        Timeline versionWatcher = new Timeline(new KeyFrame(Duration.seconds(3), e -> {
+            List<String> currentOnDisk = getDownloadedVersions();
+            if (currentOnDisk.size() != versionSelector.getItems().size()) {
+                String selected = versionSelector.getValue();
+                refreshVersionList();
+                if (selected != null && versionSelector.getItems().contains(selected)) {
+                    versionSelector.setValue(selected);
+                }
+            }
+        }));
+        versionWatcher.setCycleCount(Timeline.INDEFINITE);
+        versionWatcher.play();
 
         // Botón PLAY
         // 3. Botón JUGAR
@@ -300,7 +330,7 @@ public class InicioView {
         btnPlay.setOnAction(e -> {
             String selected = versionSelector.getValue();
             if (selected != null && !selected.equals("Sin versiones instaladas")) {
-                launchGame(selected, root);
+                showOptimizationWarning(selected, root); // [MODIFICADO] Lanzar advertencia con estilo
             } else {
                 MainView.showNotification("Error", "Debes descargar una versión primero.", "error");
             }
@@ -309,7 +339,15 @@ public class InicioView {
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
         
-        sidebar.getChildren().addAll(userWidget, newsWidget, spacer);
+        // [FIX] Envolver sidebar en ScrollPane para que no se corten los botones en Canaimas
+        ScrollPane sideScroll = new ScrollPane(sidebar);
+        sideScroll.setFitToWidth(true);
+        sideScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        sideScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        sideScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        sideScroll.setPrefWidth(300);
+
+        // sidebar.getChildren().addAll(userWidget, newsWidget, spacer); // Ya no se añade directo al layout
 
         // --- CENTRO (Título y Redes) ---
 
@@ -372,7 +410,7 @@ public class InicioView {
 
         centerArea.getChildren().addAll(spacerTop, title, playArea, socialBox, spacerBottom);
 
-        // --- DERECHA (Noticias Mini) ---
+        // --- DERECHA (Widgets de Sistema) ---
         VBox rightWidgets = new VBox(20);
         rightWidgets.setAlignment(Pos.TOP_RIGHT);
         rightWidgets.setPrefWidth(280);
@@ -413,10 +451,7 @@ public class InicioView {
         // Widget de Música
         VBox musicWidget = createMusicWidget();
 
-        // [NUEVO] Widget de Discord
-        VBox discordWidget = createDiscordWidget();
-        
-        rightWidgets.getChildren().addAll(sysWidget, musicWidget, discordWidget);
+        rightWidgets.getChildren().addAll(sysWidget, musicWidget);
 
         // [MEJORA] ScrollPane para la barra derecha por si los widgets ocupan mucho espacio
         ScrollPane rightScroll = new ScrollPane(rightWidgets);
@@ -425,7 +460,7 @@ public class InicioView {
         rightScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         rightScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
-        layout.setLeft(sidebar);
+        layout.setLeft(sideScroll); // Usamos el sideScroll ahora
         layout.setCenter(centerArea);
         layout.setRight(rightScroll);
 
@@ -439,8 +474,50 @@ public class InicioView {
         VBox widget = new VBox(10);
         widget.setStyle("-fx-background-color: rgba(20, 20, 20, 0.85); -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
         
+        HBox headerBox = new HBox(10);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+
         Label header = new Label("GMusic");
         header.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        
+        Region hSpacer = new Region();
+        HBox.setHgrow(hSpacer, Priority.ALWAYS);
+
+        // [NUEVO] Botón de Iconos Ocultos (Context Menu)
+        Button btnMore = new Button();
+        FontIcon iconMore = new FontIcon(FontAwesomeSolid.ELLIPSIS_H);
+        iconMore.setIconColor(Color.web("#aaa"));
+        btnMore.setGraphic(iconMore);
+        btnMore.setStyle("-fx-background-color: transparent; -fx-cursor: hand;");
+
+        // GUI de Contexto Funcional
+        ContextMenu contextMenu = new ContextMenu();
+        contextMenu.setStyle("-fx-background-color: #222; -fx-border-color: #444;");
+        
+        MenuItem itemSkin = new MenuItem("Cambiar Skin...");
+        itemSkin.setGraphic(new FontIcon(FontAwesomeSolid.USER_EDIT));
+        itemSkin.setOnAction(e -> {
+            // Redirigir a la vista de Mi Cuenta para gestionar skins
+            MainView.getInstance().showView("Mi Cuenta");
+        });
+
+        MenuItem itemFolder = new MenuItem("Abrir carpeta .glauncher");
+        itemFolder.setGraphic(new FontIcon(FontAwesomeSolid.FOLDER_OPEN));
+        itemFolder.setOnAction(e -> {
+            try { Desktop.getDesktop().open(new File(DATA_DIR)); } catch (Exception ex) {}
+        });
+
+        MenuItem itemTurbo = new MenuItem("Modo Turbo: ON");
+        itemTurbo.setGraphic(new FontIcon(FontAwesomeSolid.BOLT));
+
+        contextMenu.getItems().addAll(itemSkin, itemFolder, new javafx.scene.control.SeparatorMenuItem(), itemTurbo);
+        
+        btnMore.setContextMenu(contextMenu);
+        btnMore.setOnAction(e -> {
+            contextMenu.show(btnMore, javafx.geometry.Side.BOTTOM, 0, 0);
+        });
+
+        headerBox.getChildren().addAll(header, hSpacer, btnMore);
         
         Label songTitle = new Label("Sin reproducción");
         songTitle.setStyle("-fx-text-fill: #ccc; -fx-font-size: 12px;");
@@ -519,27 +596,40 @@ public class InicioView {
         return null;
     }
 
-    // [FIX] Método ROBUSTO para encontrar assets en cualquier entorno (IDE, Portable, EXE)
-    private String resolveAssetPath(String path) {
-        // 1. Intentar ruta directa (Entorno desarrollo / Portable)
-        File f = new File(path);
-        if (f.exists()) return f.toURI().toString();
-        
-        // 2. Intentar ruta 'app' (Instalador EXE - Working Dir = Install Dir)
-        File appAssets = new File("app" + File.separator + path);
-        if (appAssets.exists()) return appAssets.toURI().toString();
-        
-        // 3. Intentar ruta relativa al JAR (Lo más seguro para jpackage)
-        try {
-            String jarPath = InicioView.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
-            File jarFile = new File(jarPath);
-            File jarDir = jarFile.getParentFile(); // carpeta 'app'
-            
-            if (jarDir != null) {
-                File siblingAssets = new File(jarDir, path);
-                if (siblingAssets.exists()) return siblingAssets.toURI().toString();
+    // [NUEVO] Método para refrescar la lista de versiones sin reiniciar
+    public void refreshVersionList() {
+        Platform.runLater(() -> {
+            String lastSelected = versionSelector.getValue();
+            versionSelector.getItems().clear();
+            List<String> versions = getDownloadedVersions();
+            if (versions.isEmpty()) {
+                versionSelector.getItems().add("Sin versiones instaladas");
+            } else {
+                versionSelector.getItems().addAll(versions);
             }
-        } catch (Exception e) { }
+            
+            if (lastSelected != null && versionSelector.getItems().contains(lastSelected)) {
+                versionSelector.setValue(lastSelected);
+            } else {
+                versionSelector.getSelectionModel().selectFirst();
+            }
+        });
+    }
+
+    private String resolveAssetPath(String path) {
+        // 1. Prioridad: Ruta de instalacion EXE (app\assets)
+        File exePath = new File("app" + File.separator + path);
+        if (exePath.exists()) return exePath.toURI().toString();
+
+        // 2. Secundaria: Ruta de desarrollo o portable (assets\)
+        File devPath = new File(path);
+        if (devPath.exists()) return devPath.toURI().toString();
+        
+        // 3. Fallback: Dentro del JAR
+        try {
+            URL resource = getClass().getResource("/" + path);
+            if (resource != null) return resource.toExternalForm();
+        } catch (Exception ignored) {}
         
         return new File(path).toURI().toString(); // Fallback
     }
@@ -600,13 +690,14 @@ public class InicioView {
 
                 // [CORRECCIÓN] Generación de Sesión Offline dinámica con formato solicitado
                 if ("offline".equals(type) || uuid.startsWith("00000000")) {
-                    // Generar UUID aleatorio (v4) para que sea único en cada cambio
-                    uuid = UUID.randomUUID().toString();
+                    // Generar UUID determinista basado en el nombre (Estilo Minecraft Offline)
+                    uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(StandardCharsets.UTF_8)).toString();
                     
-                    // Formato solicitado: s3ss10n_[hash_num]_[prefijo_username]
-                    String namePrefix = (username.length() > 4) ? username.substring(0, 4).toLowerCase() : username.toLowerCase();
-                    long timestamp = System.currentTimeMillis() / 100000;
-                    token = "s3ss10n_" + timestamp + "_" + namePrefix;
+                    // [CORRECCIÓN] Formato: s3ss10n_[9_digitos]_[iniciales_y_numeros]
+                    String namePrefix = username.replaceAll("[a-z]", "").toLowerCase();
+                    if (namePrefix.isEmpty()) namePrefix = username.substring(0, Math.min(username.length(), 4)).toLowerCase();
+                    long sessionNum = (System.currentTimeMillis() / 1000) % 1000000000;
+                    token = "s3ss10n_" + sessionNum + "_" + namePrefix;
 
                     final String finalUuid = uuid;
                     Platform.runLater(() -> devConsoleOutput.appendText("INFO: No se encontró UUID de sesión. Generado UUID offline: " + finalUuid + "\n"));
@@ -787,14 +878,16 @@ public class InicioView {
                     if (!hasScalaLib) {
                         devConsoleOutput.appendText("Inyectando scala-library (Fix Forge antiguo)...\n");
                         File lib = new File(libsDir, "org/scala-lang/scala-library/2.11.1/scala-library-2.11.1.jar");
-                        if (!lib.exists()) downloadFile("https://libraries.minecraft.net/org/scala-lang/scala-library/2.11.1/scala-library-2.11.1.jar", lib);
+                        // [FIX] Usar Maven Central si Mojang falla
+                        if (!lib.exists()) downloadFile("https://repo1.maven.org/maven2/org/scala-lang/scala-library/2.11.1/scala-library-2.11.1.jar", lib);
                         libraries.add(lib);
                     }
 
                     if (!hasScalaCompiler) {
                         devConsoleOutput.appendText("Inyectando scala-compiler (Fix Forge antiguo)...\n");
                         File lib = new File(libsDir, "org/scala-lang/scala-compiler/2.11.1/scala-compiler-2.11.1.jar");
-                        if (!lib.exists()) downloadFile("https://libraries.minecraft.net/org/scala-lang/scala-compiler/2.11.1/scala-compiler-2.11.1.jar", lib);
+                        // [FIX] Usar Maven Central si Mojang falla
+                        if (!lib.exists()) downloadFile("https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.11.1/scala-compiler-2.11.1.jar", lib);
                         libraries.add(lib);
                     }
                 }
@@ -830,15 +923,21 @@ public class InicioView {
                 // [NUEVO] Inyectar agente de skins si se ha seleccionado una skin personalizada
                 String customSkinPath = session.has("custom_skin_path") ? session.get("custom_skin_path").getAsString() : null;
                 if (customSkinPath != null && new File(customSkinPath).exists()) {
-                    File agentFile = new File(DATA_DIR, "agents/GLauncherSkinAgent.jar");
-                    if (agentFile.exists()) {
-                        command.add("-javaagent:" + agentFile.getAbsolutePath());
-                        command.add("-Dglauncher.skin.path=" + customSkinPath);
-                        String skinType = session.has("custom_skin_type") ? session.get("custom_skin_type").getAsString() : "default";
-                        command.add("-Dglauncher.skin.type=" + skinType);
-                        Platform.runLater(() -> devConsoleOutput.appendText("INFO: Inyectando agente de skin personalizada (" + skinType + ")...\n"));
+                    // [FIX] Verificar compatibilidad del agente (Solo 1.7.2+)
+                    if (isAgentCompatible(version)) {
+                        File agentFile = new File(DATA_DIR, "agents/GLauncherSkinAgent.jar");
+                        if (agentFile.exists()) {
+                            command.add("-javaagent:" + agentFile.getAbsolutePath());
+                            command.add("-Dglauncher.skin.path=" + customSkinPath);
+                            command.add("-Dglauncher.username=" + username);
+                            String skinType = session.has("custom_skin_type") ? session.get("custom_skin_type").getAsString() : "default";
+                            command.add("-Dglauncher.skin.type=" + skinType);
+                            Platform.runLater(() -> devConsoleOutput.appendText("INFO: Inyectando agente de skin personalizada (" + skinType + ")...\n"));
+                        } else {
+                            Platform.runLater(() -> devConsoleOutput.appendText("ADVERTENCIA: No se encontró GLauncherSkinAgent.jar. La skin personalizada no se cargará.\n"));
+                        }
                     } else {
-                        Platform.runLater(() -> devConsoleOutput.appendText("ADVERTENCIA: No se encontró GLauncherSkinAgent.jar. La skin personalizada no se cargará.\n"));
+                        Platform.runLater(() -> MainView.showNotification("Agente de Skins", "Tu versión (" + version + ") es demasiado antigua para el sistema de skins personalizadas.", "warning"));
                     }
                 }
 
@@ -856,6 +955,8 @@ public class InicioView {
                     File[] agents = agentsDir.listFiles((dir, name) -> name.endsWith(".jar"));
                     if (agents != null) {
                         for (File agent : agents) {
+                            // [FIX] No inyectar el agente de skins dos veces si ya se añadio arriba
+                            if (agent.getName().equals("GLauncherSkinAgent.jar")) continue;
                             command.add("-javaagent:" + agent.getAbsolutePath());
                             Platform.runLater(() -> devConsoleOutput.appendText(">> [SISTEMA] Inyectando agente global: " + agent.getName() + "\n"));
                         }
@@ -885,6 +986,9 @@ public class InicioView {
                     mcArgs = mcArgs.replace("${assets_index_name}", indexId); // [FIX] Placeholder correcto para 1.8.9
                     mcArgs = mcArgs.replace("${asset_index}", indexId);
                     mcArgs = mcArgs.replace("${auth_uuid}", uuid);
+                    // [FIX] Nuevos placeholders para versiones Alpha/Beta y LaunchWrapper
+                    mcArgs = mcArgs.replace("${auth_session}", token);
+                    mcArgs = mcArgs.replace("${game_assets}", "\"" + new File(DATA_DIR, "assets/virtual/legacy").getAbsolutePath() + "\"");
                     mcArgs = mcArgs.replace("${auth_access_token}", token);
                     mcArgs = mcArgs.replace("${user_properties}", "{}");
                     mcArgs = mcArgs.replace("${user_type}", userType);
@@ -1069,6 +1173,7 @@ public class InicioView {
                 JsonObject objects = json.getAsJsonObject("objects");
                 File objectsDir = new File(DATA_DIR, "assets/objects");
                 File virtualDir = new File(DATA_DIR, "assets/virtual/legacy"); // Ruta para legacy
+                File resourcesDir = new File(DATA_DIR, "resources"); // [FIX] Carpeta para Alpha/Beta
                 
                 int total = objects.entrySet().size();
                 Platform.runLater(() -> devConsoleOutput.appendText("Verificando " + total + " assets (sonidos/texturas)...\n"));
@@ -1091,6 +1196,13 @@ public class InicioView {
                         if (!virtualFile.exists()) {
                             virtualFile.getParentFile().mkdirs();
                             copyFile(assetFile, virtualFile);
+                        }
+
+                        // [FIX] Copiar a /resources para evitar que Beta 1.0 intente descargar de Amazon S3
+                        File resourceFile = new File(resourcesDir, assetPath);
+                        if (!resourceFile.exists()) {
+                            resourceFile.getParentFile().mkdirs();
+                            copyFile(assetFile, resourceFile);
                         }
                     }
                 }
@@ -1343,7 +1455,7 @@ public class InicioView {
                             // --- CAMBIO: API MC-Heads (Estilo MineSkin) ---
                             // Carga la skin con la capa externa (overlay) activada.
                             // Funciona para Premium y No-Premium (por nombre).
-                            String urlApi = "https://mc-heads.net/avatar/" + name + "/64";
+                            String urlApi = "https://ouqpeojilykkrmatijxp.supabase.co/storage/v1/object/public/skins/heads/" + name ;
                             
                             Image skinHead = new Image(urlApi, true); // Carga en segundo plano
 
@@ -1375,41 +1487,7 @@ public class InicioView {
         }).start();
     }
 
-    private VBox createDiscordWidget() {
-        VBox widget = new VBox(10);
-        widget.setStyle("-fx-background-color: #5865F2; -fx-background-radius: 20; -fx-padding: 20; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 15, 0, 0, 5); -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 20;");
-        
-        Label title = new Label("Discord Oficial");
-        title.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
-        
-        Label desc = new Label("Únete a nuestra comunidad para soporte y noticias.");
-        desc.setStyle("-fx-text-fill: #E0E0E0; -fx-font-size: 11px;");
-        desc.setWrapText(true);
-        
-        Button btnJoin = new Button("Unirse");
-        btnJoin.setStyle("-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10;");
-        btnJoin.setMaxWidth(Double.MAX_VALUE);
-        
-        btnJoin.setOnAction(e -> {
-            try {
-                String url = "https://discord.com/invite/b4mtjNcCCV";
-                String os = System.getProperty("os.name").toLowerCase();
-                if (os.contains("win")) {
-                    Runtime.getRuntime().exec("rundll32 url.dll,FileProtocolHandler " + url);
-                } else {
-                    // Compatibilidad con otros sistemas
-                    Class<?> desktopClass = Class.forName("java.awt.Desktop");
-                    Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
-                    desktopClass.getMethod("browse", java.net.URI.class).invoke(desktop, new java.net.URI(url));
-                }
-            } catch (Exception ex) { 
-                System.out.println("No se pudo abrir Discord: " + ex.getMessage());
-            }
-        });
-        
-        widget.getChildren().addAll(title, desc, btnJoin);
-        return widget;
-    }
+
 
     private Button createSocialButton(String text, String colorHex, String url) {
         Button btn = new Button(text);
@@ -1531,6 +1609,149 @@ public class InicioView {
             e.printStackTrace();
             MainView.showNotification("Error", "No se pudo guardar la configuración.", "error");
         }
+    }
+
+    // --- [NUEVO] SISTEMA DE OPTIMIZACIÓN "MODO TURBO" ---
+
+    private void showOptimizationWarning(String version, StackPane root) {
+        VBox dialogRoot = new VBox(20);
+        dialogRoot.setAlignment(Pos.CENTER);
+        dialogRoot.setPadding(new Insets(30));
+        dialogRoot.setMaxSize(500, 380);
+        // Estilo personalizado neón/oscuro (Sin usar botones estándar de JavaFX)
+        dialogRoot.setStyle("-fx-background-color: rgba(10, 10, 10, 0.98); " +
+                           "-fx-background-radius: 20; " +
+                           "-fx-border-color: #A020F0; " +
+                           "-fx-border-width: 3; " +
+                           "-fx-effect: dropshadow(three-pass-box, rgba(160,32,240,0.6), 25, 0, 0, 0);");
+
+        Label title = new Label("🚀 ¡MODO TURBO DETECTADO!");
+        title.setStyle("-fx-text-fill: #A020F0; -fx-font-size: 26px; -fx-font-weight: bold; -fx-font-family: 'Segoe UI Black';");
+
+        Label message = new Label("¿Deseas optimizar tu sistema antes de entrar?\n\n" +
+                                 "• Se cerrarán navegadores y apps en segundo plano.\n" +
+                                 "• Se detendrá la telemetría y búsqueda de Windows.\n" +
+                                 "• SE PROTEGE: Audio (Salamandra / Breakaway).\n\n" +
+                                 "Esto liberará RAM y mejorará los FPS significativamente.");
+        message.setStyle("-fx-text-fill: white; -fx-text-alignment: center; -fx-font-size: 14px;");
+        message.setWrapText(true);
+
+        HBox buttons = new HBox(15);
+        buttons.setAlignment(Pos.CENTER);
+
+        // Botón Activar (Estilo Minecraft Verde)
+        Button btnYes = new Button("ACTIVAR Y JUGAR");
+        btnYes.setStyle("-fx-background-color: #3c8527; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 10 20; -fx-border-color: #1e4d13; -fx-border-width: 2;");
+        
+        // Botón Normal (Estilo Oscuro)
+        Button btnNo = new Button("JUGAR NORMAL");
+        btnNo.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 10 20; -fx-border-color: #555; -fx-border-width: 1;");
+
+        Button btnCancel = new Button("CANCELAR");
+        btnCancel.setStyle("-fx-background-color: transparent; -fx-text-fill: #ff5555; -fx-cursor: hand; -fx-font-size: 12px; -fx-underline: true;");
+
+        buttons.getChildren().addAll(btnYes, btnNo);
+
+        StackPane overlay = new StackPane(dialogRoot);
+        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.85);");
+        root.getChildren().add(overlay);
+
+        // Animación de entrada
+        FadeTransition ft = new FadeTransition(Duration.millis(300), dialogRoot);
+        ft.setFromValue(0); ft.setToValue(1); ft.play();
+
+        btnCancel.setOnAction(e -> root.getChildren().remove(overlay));
+        
+        btnNo.setOnAction(e -> {
+            root.getChildren().remove(overlay);
+            launchGame(version, root);
+        });
+
+        btnYes.setOnAction(e -> {
+            root.getChildren().remove(overlay);
+            applySystemOptimizations();
+            launchGame(version, root);
+        });
+
+        dialogRoot.getChildren().addAll(title, message, buttons, btnCancel);
+    }
+
+    private void applySystemOptimizations() {
+        new Thread(() -> {
+            try {
+                String os = System.getProperty("os.name").toLowerCase();
+                if (!os.contains("win")) return;
+
+                Platform.runLater(() -> devConsoleOutput.appendText(">> [TURBO] Iniciando limpieza de recursos...\n"));
+
+                // 1. Detener servicios de Windows que consumen mucha RAM/CPU (Telemetría y Búsqueda)
+                // SysMain (Superfetch), DiagTrack (Telemetría), WSearch (Indización)
+                String[] services = {"SysMain", "DiagTrack", "WSearch"};
+                for (String service : services) {
+                    executeHiddenCommand("sc stop " + service);
+                }
+                // 4. Prioridad de Proceso (Java.exe)
+                executeHiddenCommand("wmic process where name='java.exe' CALL setpriority 128"); // High Priority
+                executeHiddenCommand("wmic process where name='javaw.exe' CALL setpriority 128");
+                
+                // 5. Limpieza de Memoria Standby y Cache de Archivos
+                executeHiddenCommand("powershell.exe -Command \"[System.Runtime.InteropServices.GC]::Collect()\"");
+                
+                // 6. Optimización de Red (Desactivar Nagle's Algorithm para menos latencia)
+                executeHiddenCommand("netsh int tcp set global autotuninglevel=normal");
+                executeHiddenCommand("netsh int tcp set global chimney=enabled");
+
+                // 2. Cerrar procesos pesados que NO son de audio
+                // Usamos filtros para proteger específicamente a Salamandra y Breakaway
+                String[] appsToKill = {"chrome.exe", "msedge.exe", "steam.exe", "discord.exe", "cortana.exe", "viber.exe", "teams.exe", "skype.exe", "brave.exe", "firefox.exe""EpicGamesLauncher.exe", "OneDrive.exe", "PowerToys.exe", "YourPhone.exe",
+                    "OfficeSyncProcess.exe", "jusched.exe", "NVIDIA Share.exe", "RadeonSoftware.exe",
+                    "CompPkgSrv.exe", "SearchIndexer.exe", "WindowsInternal.ComposableShell.Experiences.TextInput.InputApp.exe", "BackgroundTransferHost.exe", "ctfmon.exe", "spoolsv.exe"
+                };};
+                for (String app : appsToKill) {
+                    // El filtro /FI "IMAGENAME ne..." asegura que no matamos nada crítico si se colara
+                    executeHiddenCommand("taskkill /F /IM " + app + " /T");
+                }
+
+                // 3. Ajuste de registro para prioridad de juegos (Multimedia Class Scheduler)
+                executeHiddenCommand("reg add \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\" /v NetworkThrottlingIndex /t REG_DWORD /d 4294967295 /f");
+                
+                Platform.runLater(() -> {
+                    devConsoleOutput.appendText(">> [TURBO] Optimización completada. RAM liberada.\n");
+                    devConsoleOutput.appendText(">> [SISTEMA] AudioSrv, Salamandra y Breakaway permanecen activos.\n");
+                });
+
+            } catch (Exception e) {
+                System.err.println("Error en modo Turbo: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    private void executeHiddenCommand(String command) {
+        try {
+            // Ejecutar sin abrir ventana de CMD (cmd /c)
+            new ProcessBuilder("cmd", "/c", command)
+                .redirectErrorStream(true)
+                .start();
+        } catch (IOException e) { }
+    }
+
+    /**
+     * Detecta si la versión de Minecraft es compatible con el SkinAgent (1.7.2 en adelante).
+     */
+    private boolean isAgentCompatible(String version) {
+        // Versiones Alpha, Beta, Infdev o rd no son compatibles
+        if (version.startsWith("a") || version.startsWith("b") || version.startsWith("inf-") || version.startsWith("rd-")) return false;
+        
+        try {
+            String[] parts = version.split("\\.");
+            if (parts.length >= 2 && parts[0].equals("1")) {
+                int minor = Integer.parseInt(parts[1]);
+                return minor >= 7; // El sistema de ResourceLocation y AbstractClientPlayer inició en 1.7
+            }
+        } catch (Exception e) {
+            // Snapshots suelen seguir el patrón moderno
+        }
+        return true; 
     }
 
 }

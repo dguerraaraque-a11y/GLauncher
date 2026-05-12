@@ -14,11 +14,13 @@ import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.stage.FileChooser;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import glauncher.MainView;
-import glauncher.utils.DiscordIntegration;
 import javafx.scene.paint.Color;
+import glauncher.MainView;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
+import org.kordamp.ikonli.javafx.FontIcon;
 import javafx.scene.layout.Priority;
 
 import java.io.File;
@@ -36,15 +38,15 @@ public class SettingsView {
     private final Gson gson = new Gson();
 
     // --- TEXTURAS / SPRITE SHEET ---
-    private final String TEXTURE_PATH = "assets/texture/Sin Titulo.png";
+    private final String TEXTURE_PATH = "assets/texture/ui_sprites.png"; // Renombrado para claridad
     
     // [IMPORTANTE] Ajusta estas coordenadas (X, Y, Ancho, Alto) según tu imagen 'Sin Titulo.png'
 
-    private final Rectangle2D SPRITE_SWITCH_OFF = new Rectangle2D(33, 191, 46, 20);   // <--- Pon aquí tus datos de Paint
-    private final Rectangle2D SPRITE_SWITCH_ON  = new Rectangle2D(33, 214, 46, 20);   // <--- Pon aquí tus datos de Paint
-    private final Rectangle2D SPRITE_SLIDER_TRACK = new Rectangle2D(48, 134, 224, 8); // <--- Pon aquí tus datos de Paint
-    private final Rectangle2D SPRITE_SLIDER_THUMB = new Rectangle2D(21, 128, 20, 20); // <--- Pon aquí tus datos de Paint
-    private final Rectangle2D SPRITE_SCROLL_THUMB = new Rectangle2D(0, 0, 0, 0); // <--- Pon aquí tus datos de Paint
+    private final Rectangle2D SPRITE_SWITCH_OFF = new Rectangle2D(33, 191, 46, 20);
+    private final Rectangle2D SPRITE_SWITCH_ON  = new Rectangle2D(33, 214, 46, 20);
+    private final Rectangle2D SPRITE_SLIDER_TRACK = new Rectangle2D(48, 134, 224, 8);
+    private final Rectangle2D SPRITE_SLIDER_THUMB = new Rectangle2D(21, 128, 20, 20);
+    private final Rectangle2D SPRITE_SCROLL_THUMB = new Rectangle2D(226, 4, 207, 39); // Usar el mismo que combobox list para scrollbar thumb
     private final Rectangle2D SPRITE_CHECKBOX_OFF = new Rectangle2D(33, 160, 25, 25); // <--- Coordenadas Checkbox OFF
     private final Rectangle2D SPRITE_CHECKBOX_ON  = new Rectangle2D(60, 160, 25, 25); // <--- Coordenadas Checkbox ON
     private final Rectangle2D SPRITE_COMBOBOX_OFF = new Rectangle2D(7, 53, 209, 41); // <--- [NUEVO] ComboBox Cerrado
@@ -58,15 +60,12 @@ public class SettingsView {
     private TextField txtJvmArgs;
     private TextField txtWidth;
     private TextField txtHeight;
-    private CheckBox chkFullscreen;
-    private CheckBox chkShowConsole;
-    private CheckBox chkDiscordRpc;
-    private CheckBox chkDiscordTime;
     private CheckBox chkAutoUpdates;
     private ComboBox<String> cmbPlaybackMode;
     private TextField txtYoutubeApiKey;
 
     // Personalization
+    private CheckBox chkCustomCursor; // [NUEVO]
     private CheckBox chkAnimations;
     private TextField txtBackgroundPath;
     private ColorPicker cpAccentColor;
@@ -75,6 +74,8 @@ public class SettingsView {
     private Slider slOverlayOpacity;
     private Slider slCornerRadius;
     private TextField txtCustomCss;
+    private CheckBox chkFullscreen; // Mover aquí para que no se elimine
+    private CheckBox chkShowConsole; // Mover aquí para que no se elimine
     private ComboBox<String> cmbOnLaunch;
     private ComboBox<String> cmbLanguage;
     
@@ -102,10 +103,9 @@ public class SettingsView {
         lblTitle.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold; -fx-padding: 0 0 20 0;");
 
         btnPerformance = createCategoryButton("🎮 Rendimiento / Juego");
-        btnPersonalization = createCategoryButton("Personalización");
-        btnPersonalization.setGraphic(loadIcon("assets/icons/icons-gui/pintura.png", 24));
-        btnLauncher = createCategoryButton("Launcher / Sistema");
-        btnLauncher.setGraphic(loadIcon("assets/icons/icons-gui/tuerca.png", 24));
+        btnPersonalization = createCategoryButton("🎨 Personalización");
+        btnLauncher = createCategoryButton("⚙️ Launcher / Sistema");
+
         
         ToggleGroup group = new ToggleGroup();
         btnPerformance.setToggleGroup(group);
@@ -117,12 +117,12 @@ public class SettingsView {
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
         btnSave = new Button("Guardar");
-        btnSave.setMaxWidth(Double.MAX_VALUE);
+        btnSave.setMaxWidth(Double.MAX_VALUE); // [FIX]
         btnSave.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5;");
         btnSave.setOnAction(e -> saveSettings());
 
         btnReset = new Button("Restablecer");
-        btnReset.setMaxWidth(Double.MAX_VALUE);
+        btnReset.setMaxWidth(Double.MAX_VALUE); // [FIX]
         btnReset.setStyle("-fx-background-color: #d32f2f; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5;");
         btnReset.setOnAction(e -> resetToDefaults());
 
@@ -134,7 +134,7 @@ public class SettingsView {
         sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         sidebarScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: #444; -fx-border-width: 0 1 0 0;");
-        sidebarScroll.setPrefWidth(220);
+        sidebarScroll.setPrefWidth(250); // [FIX] Más ancho para textos largos
 
         // Aplicar textura a la barra de desplazamiento del menú lateral
         skinScrollPane(sidebarScroll);
@@ -174,18 +174,19 @@ public class SettingsView {
         lblRamInfo.setStyle("-fx-text-fill: #aaa; -fx-font-size: 12px;");
 
         // Detectar RAM del sistema (Intento seguro)
-        long maxSystemRam = 16384; // Default 16GB
+        long totalRamMB = 16384; // Default 16GB
         try {
-            com.sun.management.OperatingSystemMXBean osBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-            maxSystemRam = osBean.getTotalPhysicalMemorySize() / (1024 * 1024); // Convertir a MB
+            com.sun.management.OperatingSystemMXBean osBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean(); // [FIX] Cast explícit            totalRamMB = osBean.getTotalPhysicalMemorySize() / (1024 * 1024); // Convertir a MB
         } catch (Exception | Error e) {
             // Fallback si no se puede acceder a la clase interna
         }
 
-        ramSlider = new Slider(1024, Math.min(maxSystemRam, 32768), 2048);
-        ramSlider.setMajorTickUnit(1024);
+        // Limitar la RAM máxima para dejar espacio al sistema (80% de la RAM total)
+        long maxSafeRam = (long) (totalRamMB * 0.8);
+        ramSlider = new Slider(512, Math.max(1024, maxSafeRam), 2048);
+        ramSlider.setMajorTickUnit(512); // Ahora permite saltos de 512MB (ej. 1.5GB, 2.5GB)
         ramSlider.setMinorTickCount(0);
-        ramSlider.setSnapToTicks(true);
+        ramSlider.setSnapToTicks(true); // [FIX]
         ramSlider.setMaxWidth(Double.MAX_VALUE);
         skinSlider(ramSlider); // Aplicar textura recortada
 
@@ -198,7 +199,7 @@ public class SettingsView {
         HBox ramHeader = new HBox(10, new Label("Asignado:"), ramLabel);
         ramHeader.getChildren().get(0).setStyle("-fx-text-fill: white;");
         
-        ramCard.getChildren().addAll(lblRamInfo, ramHeader, ramSlider);
+        ramCard.getChildren().addAll(lblRamInfo, ramHeader, ramSlider); // [FIX] Añadir ramHeader
 
         // --- SECCIÓN JAVA ---
         VBox javaCard = createCard("Configuración de Java");
@@ -210,7 +211,7 @@ public class SettingsView {
         HBox.setHgrow(txtJavaPath, Priority.ALWAYS);
         
         Button btnBrowseJava = new Button("Seleccionar");
-        btnBrowseJava.setGraphic(loadIcon("assets/icons/icons-gui/carpeta.png", 16));
+        btnBrowseJava.setGraphic(getFontIcon(FontAwesomeSolid.FOLDER_OPEN, 16, Color.WHITE)); // [FIX] Usar FontIcon
         btnBrowseJava.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;");
         btnBrowseJava.setOnAction(e -> {
             FileChooser fc = new FileChooser();
@@ -220,7 +221,7 @@ public class SettingsView {
         });
         
         Button btnDetect = new Button("Auto-Detectar");
-        btnDetect.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;");
+        btnDetect.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;"); // [FIX]
         btnDetect.setOnAction(e -> detectJava8());
         
         javaBox.getChildren().addAll(txtJavaPath, btnBrowseJava, btnDetect);
@@ -253,7 +254,7 @@ public class SettingsView {
         screenCard.getChildren().addAll(resBox);
         skinCheckBox(chkFullscreen); // Aplicar textura de switch
 
-        ScrollPane scroll = new ScrollPane(new VBox(15, ramCard, javaCard, screenCard));
+        ScrollPane scroll = new ScrollPane(new VBox(20, ramCard, javaCard, screenCard)); // [FIX] Más espacio
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         
@@ -295,7 +296,12 @@ public class SettingsView {
         chkAnimations = new CheckBox("Animaciones Suaves");
         chkAnimations.setStyle("-fx-text-fill: white;");
         chkAnimations.setSelected(true);
-        skinCheckBox(chkAnimations); // Aplicar textura
+        skinCheckBox(chkAnimations);
+
+        // [NUEVO] Checkbox para cursor personalizado
+        chkCustomCursor = new CheckBox("Cursor Personalizado (Gamer)");
+        chkCustomCursor.setStyle("-fx-text-fill: white;");
+        skinCheckBox(chkCustomCursor);
 
         Label lblRadius = new Label("Redondeo de Bordes:");
         lblRadius.setStyle("-fx-text-fill: white;");
@@ -303,7 +309,7 @@ public class SettingsView {
         slCornerRadius.setStyle("-fx-control-inner-background: #444;");
 
         uiCard.getChildren().addAll(colorBox, lblBlur, slBlurRadius, lblOpacity, slOverlayOpacity, lblRadius, slCornerRadius, chkAnimations);
-
+        uiCard.getChildren().add(chkCustomCursor); // [NUEVO]
         // --- SECCIÓN FONDO ---
         VBox bgCard = createCard("Fondo del Launcher");
         Label lblBgInfo = new Label("Soporta Imagenes (PNG, JPG), GIFs y Video (MP4).");
@@ -316,7 +322,7 @@ public class SettingsView {
         HBox.setHgrow(txtBackgroundPath, Priority.ALWAYS);
 
         Button btnBrowseBg = new Button("Examinar");
-        btnBrowseBg.setGraphic(loadIcon("assets/icons/icons-gui/carpeta.png", 16));
+        btnBrowseBg.setGraphic(getFontIcon(FontAwesomeSolid.FOLDER_OPEN, 16, Color.WHITE)); // [FIX] Usar FontIcon
         btnBrowseBg.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;");
         btnBrowseBg.setOnAction(e -> {
             FileChooser fc = new FileChooser();
@@ -326,7 +332,7 @@ public class SettingsView {
         });
         
         Button btnRemoveBg = new Button("Quitar");
-        btnRemoveBg.setGraphic(loadIcon("assets/icons/icons-gui/X.png", 16));
+        btnRemoveBg.setGraphic(getFontIcon(FontAwesomeSolid.TIMES, 16, Color.WHITE)); // [FIX] Usar FontIcon
         btnRemoveBg.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;");
         btnRemoveBg.setOnAction(e -> txtBackgroundPath.setText(""));
         
@@ -338,19 +344,26 @@ public class SettingsView {
         Label lblPresets = new Label("Temas Predefinidos:");
         lblPresets.setStyle("-fx-text-fill: white;");
         HBox presetBox = new HBox(10, new Button("Oscuro (Default)"), new Button("Claro"), new Button("Glow"));
+        // [NUEVO] Más presets
+        presetBox.getChildren().addAll(new Button("Neon"), new Button("Retro"));
         ((Button) presetBox.getChildren().get(0)).setOnAction(e -> applyPreset("dark"));
         ((Button) presetBox.getChildren().get(1)).setOnAction(e -> applyPreset("light"));
         ((Button) presetBox.getChildren().get(2)).setOnAction(e -> applyPreset("glow"));
+        ((Button) presetBox.getChildren().get(3)).setOnAction(e -> applyPreset("neon")); // [NUEVO]
+        ((Button) presetBox.getChildren().get(4)).setOnAction(e -> applyPreset("retro")); // [NUEVO]
+        presetBox.getChildren().forEach(node -> ((Button)node).setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5;"));
 
         Label lblCss = new Label("CSS Personalizado (Avanzado):");
         lblCss.setStyle("-fx-text-fill: white;");
         HBox cssBox = new HBox(10);
         txtCustomCss = new TextField();
+        txtCustomCss.setTooltip(new Tooltip("Ruta a un archivo .css para aplicar estilos personalizados."));
         txtCustomCss.setPromptText("Ruta al archivo .css...");
         txtCustomCss.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-background-radius: 5;");
         HBox.setHgrow(txtCustomCss, Priority.ALWAYS);
-        Button btnBrowseCss = new Button("");
-        btnBrowseCss.setGraphic(loadIcon("assets/icons/icons-gui/carpeta.png", 16));
+        Button btnBrowseCss = new Button("..."); // [FIX] Texto más claro
+        btnBrowseCss.setTooltip(new Tooltip("Seleccionar archivo CSS"));
+        // btnBrowseCss.setGraphic(getFontIcon(FontAwesomeSolid.FOLDER_OPEN, 16, Color.WHITE)); // [FIX] No es necesario si tiene texto
         btnBrowseCss.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;");
         btnBrowseCss.setOnAction(e -> {
             FileChooser fc = new FileChooser();
@@ -358,7 +371,19 @@ public class SettingsView {
             File f = fc.showOpenDialog(null);
             if (f != null) txtCustomCss.setText(f.getAbsolutePath());
         });
-        cssBox.getChildren().addAll(txtCustomCss, btnBrowseCss);
+
+        // [NUEVO] Botón para abrir el archivo CSS en el editor por defecto
+        Button btnOpenCss = new Button("Abrir");
+        btnOpenCss.setTooltip(new Tooltip("Abrir el archivo CSS en el editor de texto por defecto."));
+        btnOpenCss.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;");
+        btnOpenCss.setOnAction(e -> {
+            try {
+                File cssFile = new File(txtCustomCss.getText());
+                if (cssFile.exists() && Desktop.isDesktopSupported()) Desktop.getDesktop().open(cssFile);
+            } catch (IOException ex) { MainView.showNotification("Error", "No se pudo abrir el archivo CSS.", "error"); }
+        });
+
+        cssBox.getChildren().addAll(txtCustomCss, btnBrowseCss, btnOpenCss); // [FIX] Añadir btnOpenCss
         themeCard.getChildren().addAll(lblPresets, presetBox, new Separator(javafx.geometry.Orientation.HORIZONTAL), lblCss, cssBox);
 
         content.getChildren().addAll(createHeader("Personalización"), uiCard, bgCard, themeCard);
@@ -405,16 +430,11 @@ public class SettingsView {
         chkShowConsole.setStyle("-fx-text-fill: white;");
         skinCheckBox(chkShowConsole);
         
-        chkDiscordRpc = new CheckBox("Activar Discord Rich Presence (RPC)");
-        chkDiscordRpc.setStyle("-fx-text-fill: white;");
-        chkDiscordRpc.setSelected(true);
-        skinCheckBox(chkDiscordRpc);
+        // [NUEVO] Botón para verificar actualizaciones manualmente
+        Button btnCheckUpdates = new Button("Verificar Actualizaciones Ahora");
+        btnCheckUpdates.setStyle("-fx-background-color: #0078d7; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold; -fx-background-radius: 5;");
+        btnCheckUpdates.setOnAction(e -> glauncher.UpdateChecker.checkForUpdates());
 
-        chkDiscordTime = new CheckBox("Mostrar tiempo transcurrido");
-        chkDiscordTime.setStyle("-fx-text-fill: #aaa; -fx-font-size: 11px; -fx-padding: 0 0 0 20;");
-        chkDiscordTime.setSelected(true);
-        skinCheckBox(chkDiscordTime);
-        
         Label lblPlayback = new Label("Modo de Reproducción (Música/Video):");
         lblPlayback.setStyle("-fx-text-fill: white;");
         cmbPlaybackMode = new ComboBox<>();
@@ -430,10 +450,12 @@ public class SettingsView {
         txtYoutubeApiKey.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-background-radius: 5;");
 
         Button btnOpenFolder = new Button("📂 Abrir Carpeta de Datos (.glauncher)");
+        btnOpenFolder.setGraphic(getFontIcon(FontAwesomeSolid.FOLDER_OPEN, 16, Color.WHITE)); // [FIX] Usar FontIcon
         btnOpenFolder.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 5;");
         btnOpenFolder.setOnAction(e -> {
             try { Desktop.getDesktop().open(new File(DATA_DIR)); } catch (Exception ex) { ex.printStackTrace(); }
         });
+        btnOpenFolder.setTooltip(new Tooltip("Abre la carpeta donde GLauncher guarda todos sus datos (versiones, mods, configuraciones)."));
 
         Button btnClearCache = new Button("Borrar Caché y Temporales");
         btnClearCache.setGraphic(loadIcon("assets/icons/icons-gui/papelera.png", 16));
@@ -447,9 +469,9 @@ public class SettingsView {
         });
 
         generalCard.getChildren().addAll(
-            lblLang, cmbLanguage, chkAutoUpdates, 
-            lblOnLaunch, cmbOnLaunch, 
-            chkShowConsole, chkDiscordRpc, chkDiscordTime,
+            lblLang, cmbLanguage, chkAutoUpdates,
+            lblOnLaunch, cmbOnLaunch,
+            chkShowConsole, btnCheckUpdates, // [FIX] Añadir btnCheckUpdates
             new Separator(), lblPlayback, cmbPlaybackMode, lblApiKey, txtYoutubeApiKey,
             new Separator(), btnOpenFolder, btnClearCache);
 
@@ -479,6 +501,7 @@ public class SettingsView {
                     if (settings.has("blurRadius")) slBlurRadius.setValue(settings.get("blurRadius").getAsDouble());
                     if (settings.has("overlayOpacity")) slOverlayOpacity.setValue(settings.get("overlayOpacity").getAsDouble());
                     if (settings.has("cornerRadius")) slCornerRadius.setValue(settings.get("cornerRadius").getAsDouble());
+                    if (settings.has("customCursor")) chkCustomCursor.setSelected(settings.get("customCursor").getAsBoolean()); // [NUEVO]
                     if (settings.has("showConsole")) chkShowConsole.setSelected(settings.get("showConsole").getAsBoolean());
                     if (settings.has("customCssPath")) txtCustomCss.setText(settings.get("customCssPath").getAsString());
                     if (settings.has("onLaunch")) cmbOnLaunch.setValue(settings.get("onLaunch").getAsString());
@@ -508,28 +531,14 @@ public class SettingsView {
             settings.addProperty("blurRadius", slBlurRadius.getValue());
             settings.addProperty("overlayOpacity", slOverlayOpacity.getValue());
             settings.addProperty("cornerRadius", slCornerRadius.getValue());
+            settings.addProperty("customCursor", chkCustomCursor.isSelected()); // [NUEVO]
             settings.addProperty("showConsole", chkShowConsole.isSelected());
             settings.addProperty("customCssPath", txtCustomCss.getText());
-            settings.addProperty("discordRpc", chkDiscordRpc.isSelected());
-            settings.addProperty("discordShowTime", chkDiscordTime.isSelected());
             settings.addProperty("autoUpdates", chkAutoUpdates.isSelected());
             settings.addProperty("onLaunch", cmbOnLaunch.getValue());
             settings.addProperty("language", cmbLanguage.getValue());
             settings.addProperty("playbackMode", cmbPlaybackMode.getValue());
             settings.addProperty("youtubeApiKey", txtYoutubeApiKey.getText());
-            
-            // Aplicar cambios de Discord RPC
-            if (chkDiscordRpc.isSelected()) {
-                try {
-                    DiscordIntegration.start();
-                    DiscordIntegration.setShowTime(chkDiscordTime.isSelected());
-                } catch (Throwable t) {
-                    System.out.println("Advertencia: Discord RPC no pudo iniciarse (Faltan nativos).");
-                    MainView.showNotification("Discord RPC", "No disponible: Faltan librerías nativas.", "warning");
-                }
-            } else {
-                try { DiscordIntegration.stop(); } catch (Throwable t) {}
-            }
 
             // Ensure directory exists
             new File(DATA_DIR).mkdirs();
@@ -562,10 +571,9 @@ public class SettingsView {
         slBlurRadius.setValue(20);
         slOverlayOpacity.setValue(0.8);
         slCornerRadius.setValue(15);
+        chkCustomCursor.setSelected(false); // [NUEVO]
         txtCustomCss.setText("");
         chkShowConsole.setSelected(false);
-        chkDiscordRpc.setSelected(true);
-        chkDiscordTime.setSelected(true);
         chkAutoUpdates.setSelected(true);
         cmbOnLaunch.setValue("No hacer nada");
         cmbLanguage.setValue("Español");
@@ -619,30 +627,27 @@ public class SettingsView {
             btnReset.setText("Reset");
             chkAutoUpdates.setText("Check for updates automatically");
             chkShowConsole.setText("Show Developer Console (Logs)");
-            chkDiscordRpc.setText("Enable Discord Rich Presence (RPC)");
-            chkDiscordTime.setText("Show elapsed time");
+            chkCustomCursor.setText("Custom Cursor (Gamer)"); // [NUEVO]
         } else if ("Português".equals(lang)) {
             lblTitle.setText("Configurações");
             btnPerformance.setText("🎮 Desempenho / Jogo");
             btnPersonalization.setText("Personalização");
+            btnPersonalization.setGraphic(getFontIcon(FontAwesomeSolid.PAINT_BRUSH, 24, Color.WHITE)); // [FIX]
             btnLauncher.setText("Launcher / Sistema");
             btnSave.setText("Salvar");
             btnReset.setText("Redefinir");
             chkAutoUpdates.setText("Verificar atualizações automaticamente");
             chkShowConsole.setText("Mostrar Console do Desenvolvedor");
-            chkDiscordRpc.setText("Ativar Discord Rich Presence (RPC)");
-            chkDiscordTime.setText("Mostrar tempo decorrido");
         } else {
             lblTitle.setText("Ajustes");
             btnPerformance.setText("🎮 Rendimiento / Juego");
             btnPersonalization.setText("Personalización");
+            btnPersonalization.setGraphic(getFontIcon(FontAwesomeSolid.PAINT_BRUSH, 24, Color.WHITE)); // [FIX]
             btnLauncher.setText("Launcher / Sistema");
             btnSave.setText("Guardar");
             btnReset.setText("Restablecer");
             chkAutoUpdates.setText("Buscar actualizaciones automáticamente");
             chkShowConsole.setText("Mostrar Consola de Desarrollo (Logs)");
-            chkDiscordRpc.setText("Activar Discord Rich Presence (RPC)");
-            chkDiscordTime.setText("Mostrar tiempo transcurrido");
         }
         
         // Actualizar también la vista principal
@@ -663,16 +668,27 @@ public class SettingsView {
 
     // --- UI Helpers ---
 
-    private ImageView loadIcon(String path, double size) {
+    // [NUEVO] Helper para FontIcon
+    private FontIcon getFontIcon(FontAwesomeSolid iconCode, double size, Color color) {
+        FontIcon icon = new FontIcon(iconCode);
+        icon.setIconSize((int) size);
+        icon.setIconColor(color);
+        return icon;
+    }
+
+    // [FIX] loadIcon para imágenes PNG/JPG (usado en botones como papelera)
+    private ImageView loadIcon(String path, double size) { // [FIX] Ahora usa resolveAssetPath
         try {
-            File f = new File(path);
-            if (f.exists()) {
-                ImageView iv = new ImageView(new Image(f.toURI().toString()));
-                iv.setFitWidth(size);
-                iv.setFitHeight(size);
-                iv.setPreserveRatio(true);
-                return iv;
-            }
+            // Usar MainView.resolveAssetPath para cargar recursos correctamente
+            String resolvedPath = glauncher.MainView.getInstance().resolveAssetPath(path);
+            Image image = new Image(resolvedPath);
+            ImageView iv = new ImageView(image);
+            iv.setFitWidth(size);
+            iv.setFitHeight(size);
+            iv.setPreserveRatio(true);
+            javafx.scene.effect.ColorAdjust whiteEffect = new javafx.scene.effect.ColorAdjust(); // [FIX] Mantener efecto blanco
+            whiteEffect.setBrightness(1.0); iv.setEffect(whiteEffect);
+            return iv;
         } catch (Exception e) { }
         return null;
     }
@@ -684,7 +700,7 @@ public class SettingsView {
         String currentStyle = chk.getStyle();
         if (currentStyle == null) currentStyle = "";
         if (!currentStyle.contains("-fx-cursor")) {
-            chk.setStyle(currentStyle + "; -fx-cursor: hand;");
+            chk.setStyle(currentStyle + " -fx-cursor: hand;"); // [FIX] Espacio
         }
         
         // Crear ImageViews para los estados

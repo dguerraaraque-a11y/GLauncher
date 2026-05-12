@@ -5,6 +5,7 @@ C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\agent\SkinAgent.java
 C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\api\ApiClient.java
 C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\api\UpdateChecker.java
 C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\installer\Installer.java
+C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\ui\GLauncherSplash.java
 C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\ui\MainLayout.java
 C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\ui\Navbar.java
 C:\Users\Administrador\GLauncher\GLauncher\src\glauncher\ui\TopBar.java

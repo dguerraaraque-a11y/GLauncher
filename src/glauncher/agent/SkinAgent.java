@@ -7,60 +7,128 @@ import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtMethod;
 
+/**
+ * Agente Java para inyectar skins en Minecraft Offline.
+ * En lugar de sobrescribir a Steve/Alex globalmente, intercepta el método 
+ * de carga de texturas para aplicarla solo al jugador local.
+ */
 public class SkinAgent {
 
     public static void premain(String agentArgs, Instrumentation inst) {
-        System.out.println("[GLauncher Skin Agent] Agente iniciado.");
+        System.out.println("[GLauncher Skin Agent] Iniciando inyeccion selectiva...");
         
-        final String skinType = System.getProperty("glauncher.skin.type", "default");
+        String skinPath = System.getProperty("glauncher.skin.path");
+        String myName = System.getProperty("glauncher.username");
+
+        if (skinPath == null || myName == null) {
+            System.err.println("[SkinAgent] Faltan parametros (skin o username). Abortando.");
+            return;
+        }
 
         inst.addTransformer(new ClassFileTransformer() {
             @Override
-            public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
+            public byte[] transform(ClassLoader loader, String className, Class classBeingRedefined,
                                     ProtectionDomain protectionDomain, byte[] classfileBuffer) {
                 
-                // Estos son nombres comunes para la clase del jugador en diferentes versiones.
-                // 'bex' es para ~1.16, 'net/minecraft/client/player/AbstractClientPlayer' para versiones más nuevas con mappings.
-                String[] targetClasses = { "bex", "net/minecraft/client/player/AbstractClientPlayer" };
-                
-                for (String targetClass : targetClasses) {
-                    if (className.replace('.', '/').equals(targetClass)) {
-                        try {
-                            System.out.println("[GLauncher Skin Agent] Encontrada clase objetivo: " + className);
-                            ClassPool cp = ClassPool.getDefault();
-                            CtClass cc = cp.get(className.replace('/', '.'));
+                if (className == null) return null;
+                String normalizedClassName = className.replace("/", ".");
 
-                            // --- Interceptar el método que obtiene el tipo de skin (slim/default) ---
-                            // El nombre del método cambia con cada versión. 'getModelName' o 'm_104230_' son comunes.
-                            CtMethod getModelMethod = findMethod(cc, new String[]{"getModelName", "m_104230_", "h"});
-                            if (getModelMethod != null) {
-                                System.out.println("[GLauncher Skin Agent] Interceptando método de modelo: " + getModelMethod.getName());
-                                getModelMethod.setBody("{ return \"" + skinType + "\"; }");
-                                System.out.println("[GLauncher Skin Agent] Modelo de skin forzado a: " + skinType);
-                                return cc.toBytecode(); // Devolver la clase modificada
+                try {
+                    // 1. SOPORTE PARA VERSIONES MODERNAS (1.8 - 1.21)
+                    // bew = 1.8.9, bub = 1.12.2, bex = 1.16.5, AbstractClientPlayer = Mapeado
+                    if (normalizedClassName.endsWith("AbstractClientPlayer") || 
+                        normalizedClassName.equals("bew") || normalizedClassName.equals("bub") || normalizedClassName.equals("bex")) {
+                        
+                        ClassPool cp = ClassPool.getDefault();
+                        cp.appendClassPath(new javassist.LoaderClassPath(loader));
+                        CtClass cc = cp.get(normalizedClassName);
+                        CtMethod m = findSkinMethod(cc);
+                        
+                        if (m != null) {
+                            String resLocClass = detectResourceLocationClass(loader);
+                            if (resLocClass != null) {
+                                // Inyección: Si el nombre coincide, devolvemos nuestra ruta interna
+                                String body = "{" +
+                                    "if ($0.getGameProfile().getName().equals(\"" + myName + "\")) {" +
+                                    "    return new " + resLocClass + "(\"glauncher\", \"skins/current.png\");" +
+                                    "}" +
+                                    "}";
+                                m.insertBefore(body);
+                                
+                                System.out.println("[SkinAgent] Hook aplicado a: " + normalizedClassName);
+                                byte[] byteCode = cc.toBytecode();
+                                cc.detach();
+                                return byteCode;
                             }
-                            
-                            cc.detach();
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                            return null;
                         }
                     }
-                }
-                return null; // No transformar otras clases
-            }
-            
-            private CtMethod findMethod(CtClass cc, String[] names) {
-                for (String name : names) {
-                    try {
-                        // Buscamos un método sin parámetros
-                        return cc.getDeclaredMethod(name, new CtClass[0]);
-                    } catch (javassist.NotFoundException e) {
-                        // Método no encontrado, probar el siguiente
+
+                    // 2. INYECCIÓN DEL ARCHIVO PNG (Crucial para que se vea)
+                    // Interceptamos la carga de recursos para entregar el archivo que el usuario eligió
+                    if (normalizedClassName.endsWith("DefaultResourcePack") || 
+                        normalizedClassName.equals("bpe") || normalizedClassName.equals("ceb") || normalizedClassName.equals("cky")) {
+                        
+                        ClassPool cp = ClassPool.getDefault();
+                        cp.appendClassPath(new javassist.LoaderClassPath(loader));
+                        CtClass cc = cp.get(normalizedClassName);
+                        
+                        injectResourceLoading(cc, skinPath);
+                        
+                        System.out.println("[SkinAgent] Hook de texturas aplicado a: " + normalizedClassName);
+                        byte[] byteCode = cc.toBytecode();
+                        cc.detach();
+                        return byteCode;
                     }
+
+                } catch (Exception e) {
+                    // Silencioso para evitar spam en consola
                 }
                 return null;
             }
         });
+    }
+
+    private static String detectResourceLocationClass(ClassLoader loader) {
+        try {
+            loader.loadClass("net.minecraft.resources.ResourceLocation");
+            return "net.minecraft.resources.ResourceLocation"; // 1.17+
+        } catch (Exception e) {
+            try {
+                loader.loadClass("net.minecraft.util.ResourceLocation");
+                return "net.minecraft.util.ResourceLocation"; // 1.7 - 1.16
+            } catch (Exception e2) { return null; }
+        }
+    }
+
+    private static void injectResourceLoading(CtClass cc, String skinPath) throws Exception {
+        String escapedPath = skinPath.replace("\\", "\\\\");
+
+        // Engañamos al juego para que crea que el archivo "glauncher:skins/current.png" existe
+        String[] existsNames = {"resourceExists", "func_110589_b", "b", "c"}; 
+        for (String name : existsNames) {
+            try {
+                cc.getDeclaredMethod(name).insertBefore("{ if ($1.getNamespace().equals(\"glauncher\")) return true; }");
+                break;
+            } catch (Exception ignored) {}
+        }
+
+        // Cuando el juego pide el Stream de datos, le pasamos nuestro archivo PNG del disco
+        String[] streamNames = {"getInputStream", "func_110590_a", "a"};
+        for (String name : streamNames) {
+            try {
+                cc.getDeclaredMethod(name).insertBefore("{ if ($1.getNamespace().equals(\"glauncher\")) {" +
+                               "  return new java.io.FileInputStream(\"" + escapedPath + "\");" +
+                               "} }");
+                break;
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private static CtMethod findSkinMethod(CtClass cc) {
+        String[] names = {"getLocationSkin", "m_6261_", "func_110306_p", "r", "x"};
+        for (String n : names) {
+            try { return cc.getDeclaredMethod(n); } catch (Exception ignored) {}
+        }
+        return null;
     }
 }

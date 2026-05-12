@@ -85,7 +85,7 @@ public class VersionesView {
             }
         };
         try {
-            System.setProperty("https.protocols", "TLSv1.2"); // [FIX] Forzar TLS 1.2 (Compatible con Java 8 y servidores modernos)
+            System.setProperty("https.protocols", "TLSv1.2,TLSv1.3"); // Permitir ambos protocolos
             System.setProperty("http.agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"); // [FIX] User-Agent Global para evitar error 153 en YouTube
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, trustAllCerts, new java.security.SecureRandom());
@@ -290,14 +290,18 @@ public class VersionesView {
         
         ToggleButton btnRelease = createFilterButton("Releases", filterGroup);
         ToggleButton btnSnapshot = createFilterButton("Snapshots", filterGroup);
-        ToggleButton btnOld = createFilterButton("Antiguas", filterGroup);
+        ToggleButton btnPre = createFilterButton("Pre-releases", filterGroup);
+        ToggleButton btnBeta = createFilterButton("Betas", filterGroup);
+        ToggleButton btnAlpha = createFilterButton("Alphas", filterGroup);
         
         btnRelease.setSelected(true);
         btnRelease.setOnAction(e -> { currentTypeFilter = "release"; filterCatalog(); });
         btnSnapshot.setOnAction(e -> { currentTypeFilter = "snapshot"; filterCatalog(); });
-        btnOld.setOnAction(e -> { currentTypeFilter = "old"; filterCatalog(); });
+        btnPre.setOnAction(e -> { currentTypeFilter = "pre"; filterCatalog(); });
+        btnBeta.setOnAction(e -> { currentTypeFilter = "beta"; filterCatalog(); });
+        btnAlpha.setOnAction(e -> { currentTypeFilter = "alpha"; filterCatalog(); });
 
-        filterBar.getChildren().addAll(btnRelease, btnSnapshot, btnOld);
+        filterBar.getChildren().addAll(btnRelease, btnSnapshot, btnPre, btnBeta, btnAlpha);
         topBar.getChildren().addAll(searchField, filterBar);
 
         vanillaInstallContainer = new VBox(10);
@@ -571,30 +575,47 @@ public class VersionesView {
     private void filterCatalog() {
         vanillaInstallContainer.getChildren().clear();
         String search = searchField.getText().toLowerCase().trim();
-        String type = currentTypeFilter;
-        
-        // Mapear tipos antiguos
-        if (type.equals("old")) type = "old_beta"; // Simplificación para demo
 
+        List<JsonObject> filtered = new ArrayList<>();
         for (JsonObject version : vanillaVersionsCache) {
             String vType = version.get("type").getAsString();
             String id = version.get("id").getAsString();
-            String url = version.get("url").getAsString();
 
-            // Lógica de filtrado
+            // Lógica de filtrado avanzada por edición
             boolean typeMatch = false;
-            if (type.equals("old")) {
-                if (vType.contains("old") || vType.equals("alpha") || vType.equals("beta")) typeMatch = true;
-            } else {
-                if (vType.equals(type)) typeMatch = true;
+            switch (currentTypeFilter) {
+                case "release": typeMatch = vType.equals("release"); break;
+                case "snapshot": 
+                    // Snapshots puras (no pre-releases)
+                    typeMatch = vType.equals("snapshot") && !id.contains("-pre") && !id.contains("-rc") && !id.contains("pre"); 
+                    break;
+                case "pre": 
+                    // Pre-releases y Release Candidates son marcados como 'snapshot' por Mojang
+                    typeMatch = vType.equals("snapshot") && (id.contains("-pre") || id.contains("-rc") || id.contains("pre")); 
+                    break;
+                case "beta": typeMatch = vType.equals("old_beta"); break;
+                case "alpha": typeMatch = vType.equals("old_alpha"); break;
             }
 
-            if (typeMatch) {
-                if (search.isEmpty() || id.contains(search)) {
-                    vanillaInstallContainer.getChildren().add(createUnifiedRow(id, url));
-                }
+            if (typeMatch && (search.isEmpty() || id.toLowerCase().contains(search))) {
+                filtered.add(version);
             }
         }
+
+        // [OPTIMIZACIÓN] Entrega progresiva de nodos para evitar lag (Batch Loading)
+        new Thread(() -> {
+            int batchSize = 15;
+            for (int i = 0; i < filtered.size(); i += batchSize) {
+                final int start = i;
+                final int end = Math.min(i + batchSize, filtered.size());
+                List<Node> batchNodes = filtered.subList(start, end).stream()
+                    .map(v -> createUnifiedRow(v.get("id").getAsString(), v.get("url").getAsString()))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                Platform.runLater(() -> vanillaInstallContainer.getChildren().addAll(batchNodes));
+                try { Thread.sleep(30); } catch (InterruptedException ignored) {} // Pequeño respiro para la UI
+            }
+        }).start();
     }
 
     private HBox createUnifiedRow(String versionId, String jsonUrl) {
@@ -1122,10 +1143,13 @@ public class VersionesView {
                         String prefix = hash.substring(0, 2);
                         File assetFile = new File(objectsDir, prefix + File.separator + hash);
                         
-                        if (!assetFile.exists()) {
-                            String assetUrl = "https://resources.download.minecraft.net/" + prefix + "/" + hash;
-                            try { downloadFile(assetUrl, assetFile); } catch (Exception e) {}
-                        }
+                        // [OPTIMIZACIÓN] Descarga paralela de assets
+                        executor.submit(() -> {
+                            if (!assetFile.exists()) {
+                                String assetUrl = "https://resources.download.minecraft.net/" + prefix + "/" + hash;
+                                try { downloadFile(assetUrl, assetFile); } catch (Exception e) {}
+                            }
+                        });
                     }
                 }
             } catch (Exception e) {

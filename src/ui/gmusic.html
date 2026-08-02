@@ -1,0 +1,42 @@
+<div class="view-header">
+    <h1>GMusic</h1>
+    <p>Tu biblioteca multimedia integrada en GLauncher</p>
+</div>
+
+<div class="gmusic-layout">
+    <!-- Panel Izquierdo: Control y Búsqueda -->
+    <div class="gmusic-search-column">
+        <div class="search-bar card">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 0.75rem; color: #888; font-family: 'Montserrat-Bold';">BÚSQUEDA GLOBAL</label>
+                <input type="text" id="yt-query" placeholder="Buscar artista, canción o URL..." class="version-dropdown" onkeypress="if(event.key === 'Enter') handleYTPlayer()">
+            </div>
+            <button class="btn btn-minecraft" style="width: 100%; margin-top: 15px;" onclick="handleYTPlayer()">
+                <i class="fa-solid fa-magnifying-glass" style="margin-right: 8px;"></i>BUSCAR
+            </button>
+            <!-- Botón movido aquí para que el reproductor no lo tape -->
+            <button class="btn btn-minecraft" style="width: 100%; margin-top: 10px; font-size: 0.7rem; padding: 10px; background-color: #0078d7; border-color: #005a9e;" onclick="toggleExternalMiniPlayer()">
+                <i class="fa-solid fa-up-right-from-square" style="margin-right: 8px;"></i>VENTANA EXTERNA
+            </button>
+        </div>
+
+        <!-- Sección de Playlists Personalizadas -->
+        <div class="card" style="margin-top: 20px; background: rgba(0,0,0,0.2);">
+            <h3 class="mc-font" style="font-size: 0.8rem; color: var(--primary); margin-bottom: 10px;">MIS PLAYLISTS</h3>
+            <div id="playlists-container" class="playlist-grid">
+                <!-- Se poblará dinámicamente desde renderer.js -->
+            </div>
+        </div>
+
+        <div id="yt-search-results" class="search-results-list">
+            <p style="text-align: center; color: #555; margin-top: 20px; font-size: 0.85rem;">Los resultados de búsqueda aparecerán aquí.</p>
+        </div>
+    </div>
+
+    <!-- Espacio reservado para el Reproductor Global -->
+    <div class="gmusic-player-column">
+        <div class="card" style="border: 1px dashed #444; height: 350px; display: flex; align-items: center; justify-content: center; opacity: 0.5;">
+            <p style="color: #666; font-size: 0.8rem;">REPRODUCTOR <i class="fa-solid fa-arrow-right" style="margin-left:5px;"></i></p>
+        </div>
+    </div>
+</div>

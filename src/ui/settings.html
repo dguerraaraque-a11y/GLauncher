@@ -1,0 +1,221 @@
+<div class="view-header">
+    <h1>Configuración</h1>
+    <p>Personaliza tu experiencia de juego y el rendimiento del sistema</p>
+</div>
+
+<div class="settings-container card">
+    <div class="settings-tabs-header card">
+        <button class="settings-tab-btn active" onclick="switchSettingsTab('set-general', this)">
+            <i class="fa-solid fa-gear"></i> GENERAL
+        </button>
+        <button class="settings-tab-btn" onclick="switchSettingsTab('set-personalizacion', this)">
+            <i class="fa-solid fa-palette"></i> PERSONALIZACIÓN
+        </button>
+        <button class="settings-tab-btn" onclick="switchSettingsTab('set-juego', this)">
+            <i class="fa-solid fa-gamepad"></i> JUEGO
+        </button>
+        <button class="settings-tab-btn" onclick="switchSettingsTab('set-java', this)">
+            <i class="fa-brands fa-java"></i> JAVA / RAM
+        </button>
+    </div>
+
+    <div class="settings-content-wrapper">
+        <!-- Pestaña General -->
+        <div id="set-general" class="settings-tab-content active">
+            <div class="profile-edit-grid">
+                <div class="setting-item">
+                    <label class="settings-label">Idioma del Launcher</label>
+                    <select id="general-lang" class="form-input" style="width: 100%;">
+                        <option value="Español (Latinoamérica)">Español (Latinoamérica)</option>
+                        <option value="English">English</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="settings-label">Minimizar a la bandeja al cerrar</label>
+                <label class="switch">
+                    <input type="checkbox" id="general-tray">
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+
+            <div class="profile-edit-grid">
+                <div class="setting-item switch-item">
+                    <label class="settings-label">Telemetría</label>
+                    <label class="switch">
+                        <input type="checkbox" id="general-telemetry">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="settings-label">Ruta de Datos (.glauncher)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="general-root" class="form-input" style="flex: 1; font-size: 0.8rem;" readonly>
+                    <button class="btn btn-primary" style="padding: 0 15px;" onclick="ipcRenderer.invoke('open-path', document.getElementById('general-root').value)" title="Abrir carpeta">
+                        <i class="fa-solid fa-folder-open"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña Personalización -->
+        <div id="set-personalizacion" class="settings-tab-content">
+            <div class="profile-edit-grid">
+                <div class="setting-item">
+                    <label class="settings-label">Apariencia (Tema)</label>
+                    <select id="appearance-theme" class="form-input" style="width: 100%;">
+                        <option value="Oscuro Moderno (Default)">Oscuro Moderno (Glow Blue)</option>
+                        <option value="emerald">Esmeralda (Classic Green)</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label class="settings-label">Color de Acento Principal</label>
+                    <input type="color" id="appearance-accent" title="Cambia el color de la interfaz">
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="settings-label">Zoom de la Interfaz: <span id="zoom-val" style="color: #fff; float: right;">100%</span></label>
+                <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('appearance-zoom'); r.stepDown(); r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">-</button>
+                    <input type="range" id="appearance-zoom" min="0.5" max="1.5" step="0.1" style="flex: 1;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('appearance-zoom'); r.stepUp(); r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">+</button>
+                </div>
+            </div>
+
+            <div class="profile-edit-grid">
+                <div class="setting-item switch-item">
+                    <label class="settings-label">Animaciones de Interfaz</label>
+                    <label class="switch">
+                        <input type="checkbox" id="appearance-animations">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+                <div class="setting-item switch-item">
+                    <label class="settings-label">Fondo Dinámico</label>
+                    <label class="switch">
+                        <input type="checkbox" id="appearance-dynamic-bg">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="settings-label">Desenfoque de Fondo (Blur): <span id="blur-val" style="color: #fff; float: right;">0px</span></label>
+                <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('appearance-blur-range'); r.stepDown(); r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">-</button>
+                    <input type="range" id="appearance-blur-range" min="0" max="20" step="1" style="flex: 1;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('appearance-blur-range'); r.stepUp(); r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">+</button>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="settings-label">Volumen de Fondo (Videos): <span id="volume-val" style="color: #fff; float: right;">50%</span></label>
+                <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('appearance-volume-range'); r.stepDown(); r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">-</button>
+                    <input type="range" id="appearance-volume-range" min="0" max="1" step="0.1" style="flex: 1;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('appearance-volume-range'); r.stepUp(); r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">+</button>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="settings-label">Personalizar Fondos (Imágenes/Videos)</label>
+                <button id="btn-select-backgrounds" class="btn btn-primary" style="width: 100%;">
+                    <i class="fa-solid fa-images"></i> SELECCIONAR MULTIPLES ARCHIVOS
+                </button>
+            </div>
+        </div>
+
+        <!-- Pestaña Juego -->
+        <div id="set-juego" class="settings-tab-content">
+            <div class="profile-edit-grid">
+                <div class="setting-item">
+                    <label class="settings-label">Ancho Resolución</label>
+                    <div class="number-stepper">
+                        <button class="num-btn" onclick="(() => { const i = document.getElementById('game-res-w'); i.stepDown(); i.dispatchEvent(new Event('change')) })()">-</button>
+                        <input type="number" id="game-res-w" value="1280">
+                        <button class="num-btn" onclick="(() => { const i = document.getElementById('game-res-w'); i.stepUp(); i.dispatchEvent(new Event('change')) })()">+</button>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label class="settings-label">Alto Resolución</label>
+                    <div class="number-stepper">
+                        <button class="num-btn" onclick="(() => { const i = document.getElementById('game-res-h'); i.stepDown(); i.dispatchEvent(new Event('change')) })()">-</button>
+                        <input type="number" id="game-res-h" value="720">
+                        <button class="num-btn" onclick="(() => { const i = document.getElementById('game-res-h'); i.stepUp(); i.dispatchEvent(new Event('change')) })()">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label class="settings-label">IP de Autounión (Opcional)</label>
+                <input type="text" id="game-auto-join" class="form-input" placeholder="play.myserver.com" style="width: 100%;">
+            </div>
+            <div class="setting-item">
+                <label class="settings-label">Servidor de Skins (Yggdrasil URL)</label>
+                <input type="text" id="yggdrasil-url" class="form-input" placeholder="https://skin-server.com/api" style="width: 100%;">
+            </div>
+            <div class="profile-edit-grid">
+                <div class="setting-item">
+                    <label class="settings-label">Pantalla completa al iniciar</label>
+                    <label class="switch">
+                        <input type="checkbox" id="game-fullscreen">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label class="settings-label">Mostrar Consola de Logs</label>
+                    <label class="switch">
+                        <input type="checkbox" id="game-open-logs">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label class="settings-label">Cerrar launcher al jugar</label>
+                    <label class="switch">
+                        <input type="checkbox" id="game-close-on-launch">
+                        <span class="slider-switch"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña Java -->
+        <div id="set-java" class="settings-tab-content">
+            <div class="setting-item">
+                <label class="settings-label">Asignación de RAM (Máxima): <span id="ram-val" style="color: #fff; float: right;">4GB</span></label>
+                <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('ram-range'); r.value--; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">-</button>
+                    <input type="range" id="ram-range" min="1" max="16" step="1" style="flex: 1;">
+                    <button class="num-btn" onclick="(() => { const r = document.getElementById('ram-range'); r.value++; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')) })()">+</button>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label class="settings-label">Prioridad del Proceso Java</label>
+                <select id="java-priority" class="form-input" style="width: 100%;">
+                    <option value="normal">Normal (Recomendado)</option>
+                    <option value="high">Alta (Más FPS)</option>
+                    <option value="realtime">Tiempo Real (Inestable)</option>
+                </select>
+            </div>
+
+            <div class="setting-item">
+                <label class="settings-label">Ruta de Java (Ejecutable)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="java-path" class="form-input" placeholder="Por defecto (Bundled)" style="flex: 1;">
+                    <button class="btn btn-primary" style="padding: 0 15px;" onclick="browseJavaPath()" title="Seleccionar ejecutable">
+                        <i class="fa-solid fa-folder-open"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label class="settings-label">Argumentos JVM Especiales</label>
+                <textarea id="java-args" class="form-input" style="width: 100%; height: 80px; resize: none; font-size: 0.8rem;"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-top: 20px; text-align: right; color: #555; font-size: 0.7rem;">GLauncher Core v1.0.0 - Todos los cambios se guardan automáticamente</div>

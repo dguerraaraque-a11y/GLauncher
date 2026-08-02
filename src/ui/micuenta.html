@@ -1,0 +1,362 @@
+<div class="account-dashboard">
+    <!-- Barra Lateral Flotante -->
+    <nav class="sidebar-floating">
+        <button class="side-tab-btn active" data-label="Perfil" onclick="switchAccountTab('tab-perfil', this)">
+            <i class="fa-solid fa-user"></i>
+        </button>
+        <button class="side-tab-btn" data-label="Amigos" onclick="switchAccountTab('tab-amigos', this)">
+            <i class="fa-solid fa-users"></i>
+        </button>
+        <button class="side-tab-btn" data-label="GChat" onclick="switchAccountTab('tab-chat', this)">
+            <i class="fa-solid fa-comments"></i>
+        </button>
+        <button class="side-tab-btn" data-label="Skins" onclick="switchAccountTab('tab-skins', this)">
+            <i class="fa-solid fa-shirt"></i>
+        </button>
+        <button class="side-tab-btn" data-label="Personalización" onclick="switchAccountTab('tab-personalizacion', this)">
+            <i class="fa-solid fa-palette"></i>
+        </button>
+        <button class="side-tab-btn" data-label="Logros" onclick="switchAccountTab('tab-logros', this)">
+            <i class="fa-solid fa-trophy"></i>
+        </button>
+        <div class="sidebar-spacer"></div>
+        <button class="side-tab-btn" data-label="Ajustes" onclick="switchAccountTab('tab-ajustes', this)">
+            <i class="fa-solid fa-gear"></i>
+        </button>
+    </nav>
+
+    <!-- Contenido Principal del Dashboard -->
+    <div class="dashboard-main card">
+        <div id="tab-perfil" class="account-tab-content active">
+            <div class="profile-header-banner">
+                <div class="profile-avatar-container">
+                    <img src="assets/images/default-avatar.png" alt="Avatar" class="profile-avatar-large">
+                    <div class="status-indicator online"></div>
+                    <button class="edit-avatar-btn" title="Personalizar foto" onclick="changeProfilePicture()">
+                        <i class="fa-solid fa-camera"></i>
+                    </button>
+                </div>
+                <div class="profile-header-info">
+                    <h1 class="mc-font display-name">Steve</h1>
+                    <span class="player-rank">JUGADOR GLOBAL</span>
+                    <button class="btn btn-primary" style="margin-top: 15px; font-size: 0.7rem; padding: 6px 15px; display: block;" onclick="openAccountSwitcher()">
+                        <i class="fa-solid fa-right-left"></i> CAMBIAR CUENTA
+                    </button>
+                </div>
+            </div>
+
+            <div class="profile-section-title">
+                <i class="fa-solid fa-circle-info"></i> DETALLES DE LA CUENTA
+            </div>
+            
+            <div class="profile-info-grid">
+                <div class="info-box">
+                    <span class="label">Nombre de Usuario</span>
+                    <p class="value" id="detail-username">Steve</p>
+                </div>
+                <div class="info-box">
+                    <span class="label">ID de Jugador (UUID)</span>
+                    <p class="value mono" id="detail-uuid">00000000-0000-0000-0000-000000000000</p>
+                </div>
+                <div class="info-box">
+                    <span class="label">Tipo de Cuenta</span>
+                    <p class="value"><i class="fa-brands fa-microsoft"></i> Microsoft (Premium)</p>
+                </div>
+                <div class="info-box">
+                    <span class="label">Miembro desde</span>
+                    <p class="value" id="detail-joined">01/01/2024</p>
+                </div>
+            </div>
+
+            <div class="profile-section-title">
+                <i class="fa-solid fa-shirt"></i> VISTA PREVIA DE SKIN
+            </div>
+            
+            <div class="skin-preview-card card">
+                <div id="profile-skin-viewer-3d" style="width: 100%; height: 250px; margin-bottom: 15px;"></div>
+                <button class="btn btn-primary" onclick="switchAccountTab('tab-skins', document.querySelector('[data-label=Skins]'))">CAMBIAR SKIN</button>
+            </div>
+        </div>
+        
+        <div id="tab-amigos" class="account-tab-content">
+            <h2 class="mc-font">Amigos</h2>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; gap: 20px;">
+                <div style="position: relative; display: inline-block;">
+                    <i class="fa-solid fa-users fa-4x" style="color: var(--primary); filter: drop-shadow(0 0 15px var(--primary-glow)); opacity: 0.6;"></i>
+                    <i class="fa-solid fa-user-plus" style="position: absolute; bottom: -5px; right: -5px; font-size: 1.5rem; color: #f39c12; background: #0a0a0a; border-radius: 50%; padding: 4px; border: 2px solid var(--glass-border);"></i>
+                </div>
+                <h3 style="font-family: 'Minecraftia'; color: #fff; margin: 0;">Sistema Social</h3>
+                <p style="color: #aaa; font-size: 0.9rem; max-width: 400px; line-height: 1.5;">
+                    Pronto podrás añadir amigos, ver a qué están jugando y enviar invitaciones directamente desde GLauncher.
+                </p>
+            </div>
+        </div>
+
+        <!-- Los demás tabs se pueden expandir de la misma forma -->
+        <div id="tab-chat" class="account-tab-content">            <h2 class="mc-font"><i class="fa-solid fa-comments"></i> GChat Global</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <p style="color: #888; margin: 0;">Habla con la comunidad de GLauncher.</p>
+                <span style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); font-size: 0.65rem; padding: 4px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px; font-family: 'Montserrat-Bold';">
+                    <i class="fa-solid fa-shield-halved"></i> FILTRO ACTIVO
+                </span>
+            </div>
+            
+            <div class="chat-mock card" style="height: 250px; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 10px; position: relative;">
+                <div id="chat-messages" class="custom-scrollbar" style="padding: 10px; overflow-y: auto; font-size: 0.8rem; color: #ccc; font-family: 'Montserrat-Bold';">
+                    <div><span style="color: var(--primary);">[Sistema]</span> ¡Bienvenido al chat global de GLauncher!</div>
+                </div>
+                
+                <!-- Buscador de Tenor (Oculto por defecto) -->
+                <div id="tenor-picker" class="card" style="display: none; position: absolute; bottom: 0; left: 0; right: 0; background: #111; z-index: 10; height: 200px; padding: 10px; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;">
+                    <input type="text" id="tenor-search-input" placeholder="Buscar en Tenor..." class="form-input" style="width: 100%; margin-bottom: 10px; font-size: 0.7rem;" onkeyup="if(event.key === 'Enter') searchTenor()">
+                    <div id="tenor-results" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; overflow-y: auto; height: 130px;" class="custom-scrollbar"></div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-primary" style="padding: 0 15px;" onclick="toggleTenorPicker()"><i class="fa-solid fa-face-smile"></i></button>
+                <input type="text" id="chat-input" placeholder="Escribe un mensaje..." class="form-input" style="flex: 1;" onkeypress="if(event.key === 'Enter') sendMockChatMessage()">
+                <button class="btn btn-primary" style="padding: 0 20px;" onclick="sendMockChatMessage()">ENVIAR</button>
+            </div>
+        </div>
+        <div id="tab-skins" class="account-tab-content">
+            <h2 class="mc-font"><i class="fa-solid fa-shirt"></i> Biblioteca de Skins</h2>
+            <div class="profile-edit-grid" style="grid-template-columns: 400px 1fr; gap: 20px; align-items: start;">
+                <!-- Vista Previa 3D -->
+                <div class="skin-preview-card card" style="height: 500px; position: sticky; top: 0;">
+                    <div id="skin-loading-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:5; align-items:center; justify-content:center; border-radius:15px;">
+                        <i class="fas fa-circle-notch fa-spin fa-2x" style="color:var(--primary);"></i>
+                    </div>
+                    <div id="skin-viewer-3d" style="width: 100%; height: 350px;"></div>
+                    <div id="skin-status-text" style="margin-top: 10px; font-size: 0.7rem; font-family: 'Montserrat-Bold'; text-align: center; color: #888;">Previsualización 3D Interactiva</div>
+                    
+                    <div style="display: flex; gap: 10px; width: 100%; margin-top: 20px;">
+                        <button class="btn btn-primary" style="flex: 1; font-size: 0.7rem;" onclick="changeSkin()">
+                            <i class="fa-solid fa-upload"></i> SUBIR LOCAL
+                        </button>
+                        <button class="btn" style="flex: 1; font-size: 0.7rem; border-color: #555;" onclick="resetSkin()">
+                            <i class="fa-solid fa-rotate-left"></i> STEVE
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Biblioteca de búsqueda -->
+                <div class="skin-library-column">
+                    <div class="search-container" style="margin-top: 0; padding: 15px;">
+                        <div class="search-input-group">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="skin-search-input" placeholder="Busca una skin por nombre o estilo..." onkeyup="if(event.key === 'Enter') searchSkins()">
+                        </div>
+                        <button class="btn btn-primary" onclick="searchSkins()">BUSCAR</button>
+                    </div>
+
+                    <div id="skin-library-results" class="mods-grid" style="margin-top: 20px;">
+                        <div class="mod-card card" style="min-height: 180px;">
+                            <p style="color: #555; padding: 40px; text-align: center;">Escribe algo para buscar skins...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tab-personalizacion" class="account-tab-content">
+            <h2 class="mc-font"><i class="fa-solid fa-palette"></i> Personalización</h2>
+            
+            <div class="profile-section-title">
+                <i class="fa-solid fa-user-pen"></i> IDENTIDAD VISUAL
+            </div>
+
+            <div class="profile-edit-grid">
+                <div class="setting-item">
+                    <label class="label">Nombre de Usuario</label>
+                    <input type="text" id="edit-username" placeholder="Steve" class="form-input" style="width: 100%;">
+                </div>
+                <div class="setting-item">
+                    <label class="label">Apodo (Display Name)</label>
+                    <input type="text" id="edit-nickname" placeholder="ElPro_2024" class="form-input" style="width: 100%;">
+                </div>
+            </div>
+            <button class="btn btn-primary" style="margin-top: 10px; width: 100%; margin-bottom: 30px;" onclick="saveProfileChanges()">GUARDAR CAMBIOS</button>
+
+            <div class="profile-section-title">
+                <i class="fa-solid fa-images"></i> MIS AVATARES ANTERIORES
+            </div>
+            
+            <div id="pfp-history-grid" class="pfp-history-grid"></div>
+        </div>
+
+        <div id="tab-ajustes" class="account-tab-content">
+            <h2 class="mc-font">Ajustes</h2>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; gap: 20px;">
+                <div style="position: relative; display: inline-block;">
+                    <i class="fa-solid fa-user-gear fa-4x" style="color: var(--primary); filter: drop-shadow(0 0 15px var(--primary-glow)); opacity: 0.6;"></i>
+                </div>
+                <h3 style="font-family: 'Minecraftia'; color: #fff; margin: 0;">Ajustes de Cuenta</h3>
+                <p style="color: #aaa; font-size: 0.9rem; max-width: 400px; line-height: 1.5;">
+                    Aquí podrás gestionar tu sesión de Microsoft, vincular Discord y configurar la privacidad de tu perfil.
+                </p>
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--glass-border); width: 100%;">
+                    <button class="btn" style="color: #ff4757; border-color: rgba(255, 71, 87, 0.3); font-size: 0.7rem; width: 100%;" onclick="uninstallLauncher()">
+                        <i class="fa-solid fa-trash-can"></i> RESTABLECER LAUNCHER (VUELVE AL CONFIGURADOR)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nuevo Tab de Logros -->
+        <div id="tab-logros" class="account-tab-content" style="padding-bottom: 50px;">
+            <h2 class="mc-font" style="margin-bottom: 10px;"><i class="fa-solid fa-trophy"></i> Mis Logros</h2>
+            <p style="color: #ccc; margin-bottom: 30px;">Completa hitos dentro del launcher para ganar prestigio y desbloquear funciones.</p>
+
+            <div class="profile-section-title">
+                <i class="fa-solid fa-rocket"></i> PROGRESO DEL LAUNCHER
+            </div>
+            
+            <div class="achievements-container-wrapper">
+            <div class="achievements-grid">
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(0, this)">
+                    <i class="fa-solid fa-download fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Iniciando el Viaje</h3>
+                    <p>Descarga tu primera versión de Minecraft.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(1, this)">
+                    <i class="fa-solid fa-play fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Primer Despegue</h3>
+                    <p>Inicia el juego por primera vez desde GLauncher.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(2, this)">
+                    <i class="fa-solid fa-music fa-3x" style="color: #ff00ff; margin-bottom: 10px;"></i>
+                    <h3>Melómano</h3>
+                    <p>Escucha tu primera canción en GMusic.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(3, this)">
+                    <i class="fa-solid fa-crown fa-3x" style="color: #f1c40f; margin-bottom: 10px;"></i>
+                    <h3>Rey del PoP</h3>
+                    <p>Escucha una canción de Michael Jackson en GMusic.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(4, this)">
+                    <i class="fa-solid fa-comments fa-3x" style="color: #48dbfb; margin-bottom: 10px;"></i>
+                    <h3>Socializador</h3>
+                    <p>Envía tu primer mensaje en el GChat global.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(5, this)">
+                    <i class="fa-solid fa-shirt fa-3x" style="color: #feca57; margin-bottom: 10px;"></i>
+                    <h3>Estilista</h3>
+                    <p>Personaliza tu skin por primera vez.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(6, this)">
+                    <i class="fa-solid fa-gear fa-3x" style="color: #95afc0; margin-bottom: 10px;"></i>
+                    <h3>Configurador</h3>
+                    <p>Modifica los ajustes técnicos del launcher.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(7, this)">
+                    <i class="fa-solid fa-cubes fa-3x" style="color: #ff9f43; margin-bottom: 10px;"></i>
+                    <h3>Cazador de Mods</h3>
+                    <p>Busca contenido en la galería de Modrinth.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(8, this)">
+                    <i class="fa-solid fa-calendar-check fa-3x" style="color: #ff4757; margin-bottom: 10px;"></i>
+                    <h3>Veterano</h3>
+                    <p>Abre el launcher al menos 5 veces.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(9, this)">
+                    <i class="fa-solid fa-map-location-dot fa-3x" style="color: #2ed573; margin-bottom: 10px;"></i>
+                    <h3>Explorador</h3>
+                    <p>Visita todas las pestañas de navegación.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(10, this)">
+                    <i class="fa-solid fa-broom fa-3x" style="color: #70a1ff; margin-bottom: 10px;"></i>
+                    <h3>Limpieza Profunda</h3>
+                    <p>Elimina un avatar antiguo del historial.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(11, this)">
+                    <i class="fa-solid fa-network-wired fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Arquitecto de Redes</h3>
+                    <p>Agrega tu primer servidor personalizado a la lista.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(12, this)">
+                    <i class="fa-brands fa-java fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Maestro del Java</h3>
+                    <p>Asigna más de 8GB de memoria RAM al juego.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(13, this)">
+                    <i class="fa-solid fa-clock-rotate-left fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Viajero del Tiempo</h3>
+                    <p>Instala una versión Alpha o Beta de Minecraft.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(14, this)">
+                    <i class="fa-solid fa-images fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Arquitecto de Paisajes</h3>
+                    <p>Configura 3 o más fondos personalizados para tu launcher.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(15, this)">
+                    <i class="fa-solid fa-expand fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Inmersión Total</h3>
+                    <p>Inicia el juego en modo pantalla completa.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(16, this)">
+                    <i class="fa-solid fa-microchip fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Ingeniero de Software</h3>
+                    <p>Instala una versión utilizando un motor de mods (Fabric/Forge).</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+                <div class="achievement-card card launcher-feat" onclick="showAchievementDetail(17, this)">
+                    <i class="fa-solid fa-user-shield fa-3x" style="color: #555; margin-bottom: 10px;"></i>
+                    <h3>Escudo de Datos</h3>
+                    <p>Utiliza el sistema de escaneo de seguridad de enlaces en el GChat.</p>
+                    <div class="achievement-progress"><div class="progress-bar-fill" style="width: 0%;"></div></div>
+                    <span class="achievement-status locked">Bloqueado</span>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Cambio de Cuenta (Estilo YouTube TV) -->
+<div id="account-switcher-modal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) closeAccountSwitcher()">
+    <div class="account-switcher-panel card">
+        <h2 class="mc-font" style="text-align: center; margin-bottom: 40px; font-size: 1.5rem;">¿Quién está jugando hoy?</h2>
+        <div id="accounts-grid" class="accounts-grid">
+            <!-- Las cuentas se inyectan dinámicamente desde renderer.js -->
+        </div>
+        <div style="margin-top: 50px; display: flex; justify-content: center; gap: 20px;">
+            <button class="btn btn-primary" onclick="addNewAccount()">
+                <i class="fa-solid fa-plus"></i> AÑADIR CUENTA
+            </button>
+            <button class="btn" style="background: rgba(255,255,255,0.1); border: none;" onclick="closeAccountSwitcher()">CANCELAR</button>
+        </div>
+    </div>
+</div>

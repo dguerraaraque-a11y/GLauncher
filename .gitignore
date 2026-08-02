@@ -1,13 +1,1 @@
-out/
-.vscode/
-temp_input/
-sources.txt
-Ver.bat
-build.bat
-logs/
-.idx/
-target/
-run.bat
-sources.txt
-test_installer.bat
-generar_exe.bat
+node_modules/

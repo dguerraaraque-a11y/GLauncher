@@ -1,0 +1,76 @@
+<div class="inicio-layout">
+    <div class="inicio-main">
+        <!-- Espacio central para el Logo -->
+        <div class="main-content">
+            <div class="hero-container">
+                <img src="assets/icons/minecraft_title.png" alt="GLauncher" class="mc-logo-inicio">
+                <div class="news-feed">
+                    <div class="news-card card">
+                        <span class="news-tag"><i class="fa-solid fa-code-compare"></i> UPDATE</span>
+                        <h4>Versión 26.1.2 disponible</h4>
+                        <p>Explora los nuevos modelos de crías, crafteos y el diente de león dorado.</p>
+                    </div>
+                    <div class="news-card card">
+                        <span class="news-tag server"><i class="fa-solid fa-server"></i> ONLINE</span>
+                        <h4>Servidor de la Comunidad</h4>
+                        <p>Únete a nuestro Discord para jugar juntos.</p>
+                    </div>
+                    <div class="news-card card">
+                        <span class="news-tag dev"><i class="fa-solid fa-file-lines"></i> LOG</span>
+                        <h4>Mejoras en GLauncher</h4>
+                        <p>Actualizamos a Electron ya que tuvimos problemas de compatibilidad con equipos x86.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de controles inferior combinada -->
+        <div class="controls-bar card" style="display: flex; gap: 15px; align-items: center; padding: 15px 30px; margin-bottom: 20px;">
+            <div class="custom-select-container" id="version-selector" tabindex="0" style="flex: 1; outline: none;">
+                <div class="selected-option">
+                    <span id="current-version">Minecraft 1.20.1 - Fabric</span>
+                    <i class="arrow-icon">▼</i>
+                </div>
+                <div class="options-list">
+                    <div class="option" data-value="1.20.1">Minecraft 1.20.1 - Fabric</div>
+                    <div class="option" data-value="1.12.2">Minecraft 1.12.2 - Forge</div>
+                    <div class="option" data-value="1.8.9">Minecraft 1.8.9 - Vanilla</div>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-ejecutar" style="flex: 1; height: 50px; font-size: 1.1rem; border-radius: 15px; font-family: 'Minecraftia', sans-serif; background: linear-gradient(135deg, #2ecc71, #27ae60); border-color: #27ae60; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4);"><i class="fa-solid fa-play" style="margin-right: 10px;"></i>EJECUTAR JUEGO</button>
+        </div>
+    </div>
+
+    <!-- Perfil de Usuario Lateral -->
+    <aside class="inicio-sidebar">
+        <div class="user-profile card" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            <div style="position: relative;">
+                <img src="assets/images/default-avatar.png" class="user-avatar" style="margin-bottom: 0;">
+                <span class="status-indicator online" style="position: absolute; bottom: 5px; right: 5px; width: 12px; height: 12px; background: #2ecc71; border: 2px solid #111; border-radius: 50%; box-shadow: 0 0 10px #2ecc71;"></span>
+            </div>
+            <span class="display-name">Tu Apodo</span>
+            <span class="mc-handle">@steve_player</span>
+            <div class="user-badge" style="background: rgba(0, 120, 215, 0.2); border: 1px solid rgba(0, 120, 215, 0.4); color: #0078d7; font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; font-family: 'Minecraftia'; text-transform: uppercase; margin-top: 5px;">JUGADOR GLOBAL</div>
+            
+            <div class="profile-stats" style="display: flex; width: 100%; justify-content: space-around; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 15px; padding-top: 15px; text-align: center; gap: 10px;">
+                <div style="flex: 1;">
+                    <div id="sidebar-stat-launches" style="font-family: 'Minecraftia'; font-size: 0.9rem; color: var(--primary);">0</div>
+                    <div style="font-size: 0.6rem; color: #888; text-transform: uppercase;">Inicios</div>
+                </div>
+                <div style="border-left: 1px solid rgba(255,255,255,0.05);"></div>
+                <div style="flex: 1;">
+                    <div id="sidebar-stat-achievements" style="font-family: 'Minecraftia'; font-size: 0.9rem; color: var(--minecraft-green);">0/18</div>
+                    <div style="font-size: 0.6rem; color: #888; text-transform: uppercase;">Logros</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Acceso Rápido (Ahora debajo del perfil) -->
+        <div class="quick-access-section">
+            <div class="card quick-access-item gmusic-widget" onclick="loadView('gmusic')">
+                <h3>GMusic</h3>
+                <p>Escucha tus temas favoritos</p>
+            </div>
+        </div>
+    </aside>
+</div>

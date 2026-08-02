@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLauncher Modern</title>
+    <link rel="icon" type="image/png" href="assets/icons/favicon.png">
+    <!-- CSP deshabilitado: el interceptor de sesión en main.js permite todas las URLs -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+</head>
+<body>
+    <div id="app">
+        <!-- Contenedor de Fondo Dinámico -->
+        <div id="bg-container"></div>
+
+        <!-- Barra de Título Custom (Reemplaza los bordes nativos) -->
+        <header class="main-title-bar">
+            <div class="window-title">
+                <img src="assets/icons/favicon.png" alt="icon">
+                <span>GLauncher</span>
+            </div>
+            <div class="window-controls">
+                <button id="win-minimize" class="control-btn"><i class="fa-solid fa-minus"></i></button>
+                <button id="win-maximize" class="control-btn"><i id="max-icon" class="fa-regular fa-square"></i></button>
+                <button id="win-close" class="control-btn close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </header>
+
+        <!-- Contenedor de Notificaciones (Siempre por encima) -->
+        <div id="notification-container"></div>
+
+        <!-- Contenedor de Vistas -->
+        <main class="content"></main>
+
+        <!-- Pon esto en tu index.html, fuera del contenedor .content -->
+<div id="global-player-container" class="player-card normal-mode hidden">
+    <div class="player-header" style="height: 5px;"></div>
+    <div class="video-placeholder">
+        <webview id="yt-webview" src="about:blank" useragent="..."></webview>
+    </div>
+    <div class="music-info">
+        <h3 id="track-name">Nada en reproducción</h3>
+    </div>
+</div>
+
+
+        <!-- Contenedor para la Navbar Dinámica -->
+        <div id="navbar-container"></div>
+
+        <!-- Panel de Descarga Global -->
+        <div id="download-panel" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 15000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+            <div class="card" style="width: 420px; text-align: center; border: 1px solid var(--primary); border-radius: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5);">
+                <h2 id="modal-version-title" style="font-family: 'Minecraftia'; color: var(--primary); margin-bottom: 20px;">Instalar Versión</h2>
+                
+                <div id="modloader-section" style="margin-bottom: 25px; text-align: left;">
+                    <label style="display: block; margin-bottom: 10px; color: #888; font-size: 0.8rem;">¿QUÉ MOTOR DESEAS USAR?</label>
+                    <div id="modloader-select-custom" class="custom-select-container" style="width: 100%;">
+                        <div class="selected-option form-input" id="modloader-selected-text">
+                            <span data-value="vanilla">Vanilla (Original)</span>
+                            <i class="arrow-icon fa-solid fa-chevron-down"></i>
+                        </div>
+                        <ul id="modloader-options-list" class="options-list custom-scrollbar">
+                            <li class="option" data-value="vanilla">Vanilla (Original)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="modloader-version-section" style="display: none; margin-bottom: 25px; text-align: left;">
+                    <label style="display: block; margin-bottom: 10px; color: #888; font-size: 0.8rem;">¿QUÉ VERSIÓN DEL MOTOR?</label>
+                    <div id="modloader-version-select-custom" class="custom-select-container" style="width: 100%;">
+                        <div class="selected-option form-input" id="modloader-version-selected-text"><span data-value="">Selecciona una versión</span><i class="arrow-icon fa-solid fa-chevron-down"></i></div>
+                        <ul id="modloader-version-options-list" class="options-list custom-scrollbar"></ul>
+                    </div>
+                </div>
+
+                <p id="no-modloader-msg" style="display: none; color: #f39c12; margin-bottom: 20px; font-size: 0.8rem; font-family: 'Montserrat-Bold';">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Esta versión solo permite instalación Vanilla.
+                </p>
+                
+                <!-- Barra de Progreso de Descarga -->
+                <div id="download-progress-container" style="display: none; margin-bottom: 25px;">
+                    <div class="progress-bar-container" style="background: rgba(0,0,0,0.5); height: 12px; border-radius: 6px; overflow: hidden; margin-bottom: 8px;">
+                        <div id="download-progress-bar" class="progress-bar-fill" style="width: 0%; height: 100%; background: var(--minecraft-green); transition: width 0.3s ease;"></div>
+                    </div>
+                    <span id="download-status-text" style="font-size: 0.8rem; color: #aaa; font-family: 'Montserrat-Bold';">Preparando archivos...</span>
+                </div>
+
+                <div id="modal-actions" style="display: flex; gap: 15px;">
+                    <button id="btn-confirm-download" class="btn btn-primary" style="flex: 1;" onclick="confirmDownload()">INSTALAR</button>
+                    <button id="btn-cancel-download" class="btn" style="flex: 1; background-color: #555; border-color: #333;" onclick="closeDownloadPanel()">CANCELAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Genérico para Entradas (Reemplazo de prompt) -->
+        <div id="generic-prompt-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+            <div class="card" style="width: 400px; border: 1px solid var(--primary); text-align: center;">
+                <h3 id="prompt-title" class="mc-font" style="color: var(--primary); margin-bottom: 15px;">Entrada</h3>
+                <input type="text" id="prompt-input" class="form-input" style="width: 100%; margin-bottom: 20px; text-align: left;" placeholder="Escribe aquí...">
+                <div style="display: flex; gap: 10px;">
+                    <button id="prompt-ok" class="btn btn-primary" style="flex: 1;">ACEPTAR</button>
+                    <button id="prompt-cancel" class="btn" style="flex: 1; background: #444;">CANCELAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Detalle de Logro Global (Movido aquí para que sea realmente FIXED) -->
+    <div id="achievement-modal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) closeAchievementDetail()">
+        <div class="achievement-detail-panel card">
+            <button class="close-modal-btn" onclick="closeAchievementDetail()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="detail-header">
+                <div id="detail-icon" class="detail-icon-box"></div>
+                <div class="detail-title-group">
+                    <h2 id="detail-title" class="mc-font"></h2>
+                    <span id="detail-tag" class="achievement-status"></span>
+                </div>
+            </div>
+            <div class="glass-hr"></div>
+            <p id="detail-desc" class="detail-description"></p>
+            <div id="detail-progress-container">
+                <div class="achievement-progress" style="height: 12px;"><div id="detail-progress-fill" class="progress-bar-fill"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canales de Audio para Notificaciones -->
+    <audio id="audio-error" src="assets/sounds/notifications/error.mp3"></audio>
+    <audio id="audio-success" src="assets/sounds/notifications/acept.mp3"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/skinview3d@3.0.0/bundles/skinview3d.bundle.js"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <script src="badwordfilter.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>

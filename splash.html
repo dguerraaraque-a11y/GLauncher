@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <title>GLauncher - Cargando</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --text-color: #ffffff;
+            --primary: #0078d7;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, #152238 0%, #050a12 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            color: var(--text-color);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            -webkit-app-region: drag;
+        }
+
+        .logo-container {
+            position: relative;
+            margin-bottom: 50px;
+        }
+
+        .logo {
+            width: 150px;
+            height: 150px;
+            filter: drop-shadow(0 0 15px rgba(0, 120, 215, 0.5));
+            opacity: 0;
+        }
+
+        .logo-monday {
+            animation: logoEntry 2s ease-out forwards, pulse 2s 2s infinite ease-in-out;
+        }
+
+        .logo-tuesday {
+            opacity: 1;
+            animation: logoCrush 0.2s 1.25s forwards;
+        }
+
+        .logo-wednesday {
+            opacity: 1;
+            animation: ballKick 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        .logo-thursday {
+            opacity: 1;
+            animation: logoThursdaySeq 6s forwards;
+        }
+
+        .logo-default {
+            opacity: 1;
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        /* Martillo para los Martes */
+        #hammer {
+            position: absolute;
+            z-index: 100;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+        }
+        .hammer-head {
+            width: 80px;
+            height: 50px;
+            background: #444;
+            border: 2px solid #222;
+            border-radius: 4px;
+        }
+        .hammer-handle {
+            width: 14px;
+            height: 80px;
+            background: #5d4037;
+            border: 2px solid #222;
+            position: absolute;
+            bottom: 50px;
+            left: 33px;
+        }
+
+        .hammer-animation {
+            display: block !important;
+            animation: hammerStrike 1.5s ease-in forwards;
+        }
+
+        /* Arqueria para los Miércoles */
+        #goal-post {
+            position: absolute;
+            right: 50px;
+            top: 30%;
+            width: 120px;
+            height: 150px;
+            border: 5px solid #fff;
+            left: -400px; /* Movida a la izquierda */
+            top: -100px;
+            width: 220px;
+            height: 250px;
+            border: 8px solid #ffffff;
+            border-bottom: none;
+            display: none;
+            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 11px);
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+            /* Red de portería mejorada */
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.15) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(255,255,255,0.15) 2px, transparent 2px);
+            background-size: 15px 15px;
+            box-shadow: 0 0 40px rgba(255,255,255,0.15), inset 0 0 30px rgba(0,0,0,0.5);
+            border-radius: 10px 10px 0 0;
+            z-index: -1;
+        }
+
+        .goal-animation {
+            display: block !important;
+            animation: goalShake 0.2s 2.2s ease-in-out 3;
+            animation: goalShake 0.2s 2.5s ease-in-out 3;
+        }
+
+        /* Estilos para el Viernes (Modo Fiesta) */
+        .search-container-friday {
+            position: absolute;
+            top: 100px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 5;
+            opacity: 0;
+            animation: fadeInText 0.5s 0.5s forwards;
+        }
+        .google-bar {
+            width: 250px;
+            height: 30px;
+            background: white;
+            border-radius: 20px;
+            border: 1px solid #dfe1e5;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            color: #000;
+            font-size: 0.8rem;
+        }
+
+        /* El cursor dibujado con CSS */
+        .friday-cursor {
+            width: 0;
+            height: 0;
+            border-left: 15px solid white;
+            border-right: 15px solid transparent;
+            border-bottom: 25px solid white;
+            position: absolute;
+            display: none;
+            z-index: 50;
+            filter: drop-shadow(2px 2px 0 black);
+            transform: rotate(-25deg);
+            transform-origin: top left;
+        }
+
+        .yaai-window {
+            position: absolute;
+            width: 200px;
+            height: 150px;
+            background: #ccc;
+            border: 2px solid #fff;
+            border-right-color: #888;
+            border-bottom-color: #888;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            display: none;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .yaai-header {
+            background: darkblue;
+            color: white;
+            padding: 2px 5px;
+            font-size: 10px;
+            font-family: 'Tahoma', sans-serif;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* Pantallazo Azul (Win 2000) */
+        #bsod {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #0000aa;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 40px;
+            box-sizing: border-box;
+            display: none;
+            z-index: 9999;
+            font-size: 1.1rem;
+            line-height: 1.2;
+            text-align: left;
+            -webkit-app-region: none;
+            border-radius: 20px;
+        }
+        
+        /* Estilos Sábado: CANTV & CORPOELEC */
+        .cantv-status {
+            font-family: 'Minecraftia', sans-serif;
+            font-size: 0.8rem;
+            color: #ffeb3b;
+            margin: 10px 0;
+            text-align: center;
+            text-shadow: 2px 2px 0px #000;
+            display: none;
+        }
+        .corpoelec-msg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: black;
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+            color: #ffffff;
+            border-radius: 20px;
+        }
+        
+        /* Escena del Sábado: Router y Foco */
+        .saturday-scene {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* Estilos Domingo: Chinchorro y Siesta */
+        .sunday-sleep-scene {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+        }
+        .chinchorro {
+            width: 250px;
+            height: 80px;
+            border-bottom: 8px solid #8d6e63;
+            border-radius: 0 0 120px 120px;
+            position: relative;
+            animation: swing 3s infinite ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(141, 110, 99, 0.15) 5px, rgba(141, 110, 99, 0.15) 6px);
+            border-left: 3px solid #6d4c41;
+            border-right: 3px solid #6d4c41;
+        }
+        /* Cuerdas del chinchorro */
+        .chinchorro::before, .chinchorro::after {
+            content: '';
+            position: absolute;
+            top: -30px;
+            width: 2px;
+            height: 50px;
+            background: #5d4037;
+            z-index: -1;
+        }
+        .chinchorro::before { left: 0; transform: rotate(-35deg); }
+        .chinchorro::after { right: 0; transform: rotate(35deg); }
+
+        .zzz-text {
+            position: absolute;
+            font-family: 'Minecraftia', sans-serif;
+            color: #aaa;
+            font-size: 1.5rem;
+            opacity: 0;
+            animation: zzzFloat 3s infinite;
+        }
+        .monday-ghost {
+            position: absolute;
+            font-size: 8rem;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-family: 'MinecraftTen', sans-serif;
+            color: #ff0000;
+            opacity: 0;
+            z-index: 100;
+            filter: drop-shadow(0 0 30px #ff0000);
+            letter-spacing: 15px;
+            pointer-events: none;
+        }
+
+        .light-bulb {
+            font-size: 3.5rem;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 0, 0.8));
+            animation: bulbFlicker 3s infinite;
+            line-height: 1;
+            user-select: none;
+            transform: rotate(180deg); /* Colgando hacia abajo */
+        }
+        .router-cantv {
+            width: 140px;
+            height: 45px;
+            background: #e0e0d1; /* Color beige viejo */
+            border: 2px solid #b8b8a0;
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-left: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .router-label {
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 0.6rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .led-group {
+            display: flex;
+            gap: 6px;
+        }
+        .led {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #333;
+        }
+        .led.power { background: #0f0; box-shadow: 0 0 5px #0f0; }
+        .led.adsl { animation: ledBlink 0.6s infinite; }
+        .led.internet { background: #f00; box-shadow: 0 0 5px #f00; } /* Internet en rojo, clásico */
+        .router-antenna {
+            position: absolute;
+            right: 15px;
+            bottom: 45px;
+            width: 4px;
+            height: 55px;
+            background: #b8b8a0;
+            border-radius: 2px;
+        }
+
+        @keyframes goalShake {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(-25px); } /* Sacudida hacia la izquierda por el impacto */
+        }
+
+        /* OVNI y Helado para los Jueves */
+        #ufo {
+            position: absolute;
+            top: -250px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            z-index: 10;
+            flex-direction: column;
+            align-items: center;
+        }
+        .ufo-glass { width: 60px; height: 35px; background: rgba(0, 255, 255, 0.5); border-radius: 50% 50% 0 0; border: 3px solid #000; margin-bottom: -15px; }
+        .ufo-body { width: 130px; height: 45px; background: #444; border-radius: 50%; border: 3px solid #000; position: relative; }
+        .ufo-beam {
+            position: absolute; top: 40px; left: 50%; transform: translateX(-50%);
+            width: 150px; height: 400px; background: linear-gradient(to bottom, rgba(0, 255, 0, 0.5), transparent);
+            clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+            opacity: 0;
+        }
+
+        #ice-cream {
+            position: absolute;
+            bottom: 25px; /* Más arriba sobre el cuerpo del logo */
+            right: 5px;   /* Más pegado al centro */
+            display: none;
+            z-index: 11;
+        }
+        .ice-cone { 
+            width: 0; height: 0; 
+            border-left: 8px solid transparent; 
+            border-right: 8px solid transparent; 
+            border-top: 18px solid #e6b47e; /* Color más sabroso */
+            filter: drop-shadow(1px 1px 0px rgba(0,0,0,0.2));
+        }
+        .ice-cream-top {
+            width: 20px; height: 20px; background: #fff; border-radius: 50%;
+            position: absolute; top: -16px; left: -2px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .thought-bubble {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Minecraftia', sans-serif;
+            font-size: 2rem;
+            color: white;
+            text-shadow: 2px 2px #000;
+            opacity: 0;
+            z-index: 20;
+        }
+
+        /* Animaciones Jueves */
+        .ufo-thursday-anim {
+            display: flex !important;
+            animation: ufoThursdayMove 6s forwards;
+        }
+        .ufo-thursday-anim .ufo-beam { animation: ufoBeamFlash 6s forwards; }
+        
+        .cream-falling { animation: creamFall 6s forwards; }
+
+        @keyframes ufoThursdayMove {
+            0% { transform: translate(300px, -200px) rotate(15deg); }
+            15% { transform: translate(-50%, 0) rotate(0deg); }
+            70% { transform: translate(-50%, 0) rotate(0deg); }
+            85% { transform: translate(-50%, -20px) scale(1.1); }
+            100% { transform: translate(-200vw, -500px) rotate(-45deg) scale(0); }
+        }
+
+        @keyframes ufoBeamFlash {
+            0%, 65% { opacity: 0; }
+            70%, 85% { opacity: 1; }
+            90%, 100% { opacity: 0; }
+        }
+
+        @keyframes logoThursdaySeq {
+            0% { transform: scale(1); }
+            5%, 15%, 25% { transform: scale(1.05) rotate(5deg); }
+            10%, 20% { transform: scale(1) rotate(-5deg); } /* Comiendo */
+            26%, 40% { transform: scale(1) rotate(0); } /* Triste */
+            41% { transform: translateX(0) translateY(0); }
+            45% { transform: translateX(20px) translateY(-10px); }
+            50% { transform: translateX(40px) translateY(0); }
+            55% { transform: translateX(60px) translateY(-10px); }
+            60% { transform: translateX(80px) translateY(0); } /* Caminando bobbing */
+            66% { transform: translateX(80px) rotate(0); }
+            70% { transform: translateX(80px) scale(1.1) rotate(10deg); opacity: 1; } /* Susto */
+            85% { transform: translate(80px, -300px) scale(0) rotate(720deg); opacity: 1; } /* Abducido pero no transparente */
+            100% { transform: translate(80px, -300px) scale(0); opacity: 1; }
+        }
+
+        @keyframes yaaiFlash {
+            0%, 100% { filter: invert(0); }
+            50% { filter: invert(1); }
+        }
+
+        .yaai-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            animation: yaaiFlash 0.5s infinite steps(1);
+        }
+
+        .yaai-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            color: black;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .logo-friday {
+            opacity: 1 !important;
+            animation: logoFridaySeq 8s forwards;
+        }
+
+        @keyframes creamFall {
+            0%, 25% { transform: translateY(0); }
+            30%, 100% { transform: translateY(110px) rotate(45deg); opacity: 0.8; } /* Cae menos distancia (más arriba) */
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
+        @keyframes logoEntry {
+            0% {
+                transform: translateX(-150vw) rotate(-720deg) scale(0.5); /* Empieza muy a la izquierda, girando y pequeño */
+                opacity: 0;
+            }
+            70% { /* Aterriza con un ligero sobrepaso */
+                transform: translateX(0) rotate(0deg) scale(1.1);
+                opacity: 1;
+            }
+            85% { /* Pequeño salto hacia arriba */
+                transform: translateY(-20px) scale(1);
+            }
+            100% { /* Se asienta en su posición final */
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes hammerStrike {
+            0% { top: -300px; transform: translateX(-50%) rotate(45deg); opacity: 0; }
+            20% { top: -200px; transform: translateX(-50%) rotate(45deg); opacity: 1; }
+            80% { top: -200px; transform: translateX(-50%) rotate(45deg); opacity: 1; }
+            85% { top: -30px; transform: translateX(-50%) rotate(0deg); opacity: 1; }
+            100% { top: -400px; transform: translateX(200%) rotate(180deg); opacity: 0; }
+        }
+
+        @keyframes logoCrush {
+            0% { transform: scale(1) translateY(0); }
+            100% { transform: scaleY(0.4) scaleX(1.4) translateY(45px); }
+        }
+
+        @keyframes ballKick {
+            0% { transform: translate(-100vw, 200px) rotate(0deg); }
+            30% { transform: translate(-50px, 200px) rotate(360deg); } /* Rueda hasta el centro */
+            45% { transform: translate(-50px, 200px) rotate(360deg) scaleX(0.8); } /* Se deforma por el golpe */
+            60% { transform: translate(150px, -100px) rotate(720deg); } /* Vuela en arco */
+            80% { transform: translate(280px, -50px) rotate(1080deg); } /* Entra en la portería */
+            100% { transform: translate(280px, -30px) rotate(1080deg); } /* Se queda ahí */
+            0% { transform: translate(-100vw, 200px) rotate(0deg); } 
+            25% { transform: translate(0, 200px) rotate(360deg); } /* Rueda al centro */
+            40% { transform: translate(300px, 150px) rotate(540deg); } /* Tiro fallido a la derecha */
+            75% { transform: translate(-340px, -50px) rotate(180deg) scale(1); } /* Vuelo hacia la portería izquierda */
+            85% { transform: translate(-390px, -20px) rotate(180deg) scale(0.4, 1.6); } /* IMPACTO: Se aplasta contra el poste */
+            100% { transform: translate(-390px, 0px) rotate(180deg) scale(0.3, 1.8); } /* Se queda aplastado y cae un poco */
+        }
+
+        @keyframes logoFridaySeq {
+            0% { transform: rotate(-25deg) scale(1) translate(0, 0); opacity: 1; }
+            10% { transform: rotate(-15deg) translate(-20px, 30px); }
+            20% { transform: rotate(-35deg) translate(30px, 70px); }
+            25% { transform: rotate(-25deg) translate(0, 100px) scale(0.8); } /* Click */
+            30% { transform: rotate(-25deg) translate(0, 100px) scale(1.2); }
+            /* Intento desesperado de cerrar pestañas */
+            40% { transform: rotate(-25deg) translate(200px, -150px); }
+            50% { transform: rotate(-25deg) translate(-250px, -100px); }
+            60% { transform: rotate(-25deg) translate(150px, 50px); }
+            80% { transform: rotate(-25deg) translate(0, 0) scale(4); filter: hue-rotate(180deg) invert(1); }
+            90%, 100% { transform: rotate(0deg) scale(10); opacity: 0; }
+        }
+
+        @keyframes swing {
+            0%, 100% { transform: rotate(-10deg); }
+            50% { transform: rotate(10deg); }
+        }
+
+        @keyframes zzzFloat {
+            0% { transform: translate(20px, 0); opacity: 0; }
+            50% { transform: translate(40px, -40px); opacity: 1; }
+            100% { transform: translate(60px, -80px); opacity: 0; }
+        }
+
+        @keyframes mondayGlitch {
+            0% { transform: translate(-50%, -50%) scale(0) skew(0); opacity: 0; }
+            10% { transform: translate(-52%, -48%) scale(1.2) skew(20deg); opacity: 1; filter: hue-rotate(90deg); }
+            20% { transform: translate(-48%, -52%) scale(1) skew(-20deg); filter: hue-rotate(180deg); }
+            30% { transform: translate(-50%, -50%) scale(1.5) skew(10deg); filter: hue-rotate(270deg); }
+            40%, 100% { transform: translate(-50%, -50%) scale(2) skew(0); opacity: 1; filter: contrast(3) brightness(2); }
+        }
+
+        @keyframes logoPanic {
+            0% { transform: scale(1); }
+            10% { transform: rotate(-90deg) scale(1.5, 0.5); } /* Se aplasta del susto */
+            30% { transform: rotate(-90deg) scale(0.5, 2); } /* Se estira */
+            50% { transform: rotate(0deg) scale(6, 0.1); filter: invert(1) hue-rotate(90deg); } /* WIDE G CURSED */
+            100% { transform: translateY(1000px) scale(6, 0.1); opacity: 0; }
+        }
+
+        @keyframes hammockBreak {
+            0% { transform: rotate(0) scale(1); opacity: 1; }
+            100% { transform: translateY(600px) rotate(75deg); opacity: 0; }
+        }
+
+        @keyframes cantvLag {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(-20%); }
+            60% { transform: translateX(-50%); } /* Retrocede por el lag */
+            90% { transform: translateX(10%); }
+        }
+
+        @keyframes ledBlink {
+            0%, 100% { background: #0f0; box-shadow: 0 0 5px #0f0; }
+            50% { background: #333; box-shadow: none; }
+        }
+
+        @keyframes bulbFlicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; filter: drop-shadow(0 0 20px rgba(255, 255, 0, 0.8)); }
+            20%, 22%, 24%, 55% { opacity: 0.2; filter: none; }
+        }
+
+        @keyframes blackoutSpark {
+            0%, 80% { background: var(--bg-color); filter: brightness(1); }
+            82% { background: white; filter: brightness(5); } /* Chispazo */
+            84% { background: black; filter: brightness(0); }
+            86% { background: white; filter: brightness(5); }
+            88%, 100% { background: black; filter: brightness(0); }
+        }
+
+        .logo-saturday {
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes bounceWindow {
+            0% { transform: translate(var(--tx1), var(--ty1)); }
+            25% { transform: translate(var(--tx2), var(--ty2)); }
+            50% { transform: translate(var(--tx3), var(--ty3)); }
+            75% { transform: translate(var(--tx4), var(--ty4)); }
+            100% { transform: translate(var(--tx1), var(--ty1)); } /* Vuelve al punto inicial de la animación para un bucle continuo */
+        }
+
+        @keyframes flashText {
+            0%, 100% { color: black; }
+            50% { color: red; }
+        }
+        
+        /* Aseguramos que las ventanas usen la duración de animación aleatoria */
+        .yaai-active {
+            display: flex !important;
+            animation: bounceWindow var(--random-duration) infinite linear;
+        }
+
+        .emoji-sad {
+            position: absolute;
+            font-size: 2.5rem;
+            opacity: 0;
+        }
+
+        .loading-bar {
+            width: 320px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            z-index: 200;
+            position: relative;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .loading-bar, .tip-container { animation: fadeInText 1s cubic-bezier(0.4, 0, 0.2, 1) 2s forwards; opacity: 0; }
+
+        .progress {
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, #0078d7 0%, #00f2fe 100%);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.8);
+            border-radius: 10px;
+            animation: loading 2.2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes loading {
+            0% { transform: translateX(-110%); }
+            50% { transform: translateX(40%); }
+            100% { transform: translateX(130%); }
+        }
+
+        .tip-container {
+            text-align: center;
+            max-width: 80%;
+            min-height: 40px; /* Para evitar saltos de layout al cambiar los tips */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* Oculta el texto que se sale durante la transición */
+            height: 40px;
+            z-index: 200;
+            position: relative;
+        }
+
+        .tip-text {
+            font-size: 0.9rem;
+            color: #aaa;
+            font-style: italic;
+            transition: opacity 0.5s ease;
+        }
+        @keyframes fadeInText {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="logo-container">
+        <div id="goal-post"></div>
+        <div id="ufo">
+            <div class="ufo-glass"></div>
+            <div class="ufo-body"><div class="ufo-beam"></div></div>
+        </div>
+        <div id="ice-cream">
+            <div class="ice-cream-top"></div>
+            <div class="ice-cone"></div>
+        </div>
+        <div id="hammer">
+            <div class="hammer-handle"></div>
+            <div class="hammer-head"></div>
+        </div>
+        <div class="search-container-friday" id="friday-search">
+            <div class="google-bar">descargar ram gratis_</div>
+            <div style="font-size: 10px; color: #888;">Presiona Enter para buscar</div>
+        </div>
+        <div id="friday-cursor" class="friday-cursor"></div>
+        
+        <!-- Escena del Sábado -->
+        <div id="saturday-router-scene" class="saturday-scene">
+            <div class="light-bulb">💡</div>
+            <div id="cantv-notice" class="cantv-status">CANTV: Sincronizando datos (2kb/s)...</div>
+            <div class="router-cantv">
+                <div class="router-antenna"></div>
+                <div class="router-label">CANTV</div>
+                <div class="led-group">
+                    <div class="led power"></div>
+                    <div class="led adsl"></div>
+                    <div class="led internet"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Escena del Domingo -->
+        <div id="sunday-scene" class="sunday-sleep-scene">
+            <div id="monday-ghost" class="monday-ghost">LUNES</div>
+            <div class="chinchorro">
+                <div class="zzz-text">Zzz...</div>
+            </div>
+        </div>
+
+        <div id="corpoelec-blackout" class="corpoelec-msg">
+            <div style="font-size: 5rem; margin-bottom: 20px;">🕯️</div>
+            <p>SIN LUZ. ATENTAMENTE: CORPOELEC</p>
+        </div>
+        <img src="assets/icons/favicon.png" alt="Logo" class="logo">
+    </div>
+    
+    <div id="bsod">
+        <p>A problem has been detected and Windows has been shut down to prevent damage to your computer.</p>
+        <br>
+        <p>THE_SYSTEM_IS_IDIOT_EXCEPTION</p>
+        <br>
+        <p>If this is the first time you've seen this Stop error screen, restart your computer. If this screen appears again, follow these steps:</p>
+        <br>
+        <p>Check to be sure you have adequate disk space. If any new software is installed, uninstall it. Technical information:</p>
+        <p>*** STOP: 0x000000D1 (0x0000000C, 0x00000002, 0x00000000, 0xF86B5A89)</p>
+    </div>
+
+    <div class="loading-bar">
+        <div class="progress"></div>
+    </div>
+
+    <div class="tip-container">
+        <p class="tip-text" id="tip">Tips: Cargando memes de calidad...</p>
+    </div>
+
+    <audio id="sfx-hammer" src="assets/sounds/sfx/cartoon-hammer.mp3"></audio>
+    <audio id="yaai-audio" src="assets/sounds/you-are-an-idiot.mp3" loop></audio>
+
+    <script>
+        const tips = [
+            "Tips: Si el juego no abre, prueba reiniciando tu PC (o tu vida).",
+            "Tips: El lag no es un bug, es una característica para aumentar la dificultad.",
+            "Tips: Cavar hacia abajo es la mejor forma de encontrar lava... y perderlo todo.",
+            "Tips: Siempre lleva un cubo de agua. Siempre.",
+            "Tips: Los Enderman son amigables si no los miras a los ojos. ¡Prometido!",
+            "Tips: Si escuchas esqueletos, significa que la fiesta ya empezó.",
+            "Tips: La mejor defensa es un buen ataque... o correr muy rápido.",
+            "Tips: No confíes en los aldeanos. Nunca.",
+            "Tips: Un Creeper solo quiere un abrazo, pero es muy explosivo al respecto.",
+            "Tips: Los diamantes son para siempre, hasta que caes al vacío.",
+            "Tips: No mires a los Endermans a los ojos, son muy tímidos y violentos.",
+            "Tips: Si escuchas un sonido de cueva a las 3 AM, corre.",
+            "Tips: Comer carne de zombie no es una dieta recomendada, pero es lo que hay.",
+            "Tips: Si el juego va a 5 FPS, no es lag, es 'modo cinemático' para mayor inmersión.",
+            "Tips: En caso de bajón de luz, GLauncher intentará invocar un generador eléctrico virtual.",
+            "Tips: Los creepers brillan en la oscuridad... justo antes de mandarte al lobby.",
+            "Tips: Un buen minero no se queja del carbón, pero siempre reza por encontrar diamantes.",
+            "Tips: Si escuchas un 'Sssss...', no mires atrás. Ya es demasiado tarde.",
+            "Tips: Comer pollo crudo tiene un 30% de probabilidad de darte hambre y un 100% de darte arrepentimiento.",
+            "Tips: El agua extingue la lava, pero no el dolor de perder todas tus herramientas de netherite.",
+            "Tips: Si te pierdes en una cueva, recuerda que todas las salidas están hacia arriba... eventualmente.",
+            "Tips: La música de GLauncher está científicamente probada para mejorar tu suerte al abrir cofres.",
+            "Tips: Si ves a Herobrine, dile que le debe 5 bolívares a DaniCraftYT25.",
+            "Tips: Dormir en el Nether es una experiencia explosiva. ¡Pruébalo bajo tu propio riesgo!",
+            "Tips: Para evitar el lag de CANTV, prueba soplar el cable ADSL o rezarle a tres santos distintos.",
+            "Tips: Si Corpoelec te quita la luz, es hora de salir a ver el sol... o buscar velas.",
+            "Tips: Recuerda guardar tu partida antes de que tu router decida tomarse una siesta de 10 minutos.",
+            "Tips: Un balde de agua te salva de una caída de 100 bloques, o te ahoga en un bloque. Tú decides.",
+            "Tips: ¿Sabías que los lobos te protegen? Solo dales un hueso. A tu ex no, a ella no le gustan los huesos.",
+        ];
+
+        const tipElement = document.getElementById('tip');
+        const logo = document.querySelector('.logo');
+        const hammer = document.getElementById('hammer');
+        const hammerSfx = document.getElementById('sfx-hammer');
+        const goal = document.getElementById('goal-post');
+        const iceCream = document.getElementById('ice-cream');
+        const ufo = document.getElementById('ufo');
+        const sunglasses = document.getElementById('sunglasses');
+        const day = new Date().getDay();
+
+        // Selección de animación por día
+        if (day === 1) { // Lunes
+            logo.classList.add('logo-monday');
+        } else if (day === 2) { // Martes
+            logo.classList.add('logo-tuesday');
+            hammer.classList.add('hammer-animation');
+            // Reproducir sonido en el momento del impacto
+            setTimeout(() => { hammerSfx.play().catch(e => console.log(e)); }, 1250);
+        } else if (day === 3) { // Miércoles
+            logo.classList.add('logo-wednesday');
+            goal.classList.add('goal-animation');
+            
+            // Crear y añadir el emoji :( después del gol
+            const emoji = document.createElement('div');
+            emoji.innerText = " :(";
+            emoji.className = "emoji-sad";
+            emoji.style.cssText = "right: 30px; top: 20%; animation: fadeIn 0.5s 2.5s forwards;";
+            emoji.style.cssText = "left: -320px; top: -150px; animation: fadeInText 0.5s 2.6s forwards;";
+            document.querySelector('.logo-container').appendChild(emoji);
+        } else if (day === 4) { // Jueves
+            logo.classList.add('logo-thursday');
+            ufo.classList.add('ufo-thursday-anim');
+            iceCream.style.display = 'block';
+            iceCream.querySelector('.ice-cream-top').classList.add('cream-falling');
+
+            const thought = document.createElement('div');
+            thought.className = "thought-bubble";
+            document.querySelector('.logo-container').appendChild(thought);
+
+            // Tiempos de los emojis
+            setTimeout(() => { 
+                thought.innerText = ":("; 
+                thought.style.opacity = "1"; 
+            }, 2000);
+            setTimeout(() => { 
+                thought.innerText = "?"; 
+            }, 4200);
+        } else if (day === 5) { // Viernes
+            logo.style.display = 'none';
+            const cursor = document.getElementById('friday-cursor');
+            cursor.style.display = 'block';
+            cursor.classList.add('logo-friday');
+            
+            const searchBar = document.getElementById('friday-search');
+            searchBar.style.display = 'flex';
+            
+            // Función para crear ventanas de idiota
+            // Ancho y alto de la ventana de splash (600x400)
+            const splashWidth = 600;
+            const splashHeight = 400;
+            // Ancho y alto de la ventana YAAI (200x150)
+            const yaaiWidth = 200;
+            const yaaiHeight = 150;
+
+            const spawnWindow = (id) => {
+                const win = document.createElement('div');
+                win.className = 'yaai-window yaai-active';
+
+                // Establecer una posición inicial aleatoria para la ventana
+                win.style.left = '0px';
+                win.style.top = '0px';
+
+                // Función para generar una coordenada absoluta aleatoria dentro de los límites
+                const getPoint = (max, size) => Math.random() * (max - size);
+
+                // Generar puntos absolutos para el translate
+                win.style.setProperty('--tx1', getPoint(splashWidth, yaaiWidth) + 'px');
+                win.style.setProperty('--ty1', getPoint(splashHeight, yaaiHeight) + 'px');
+                win.style.setProperty('--tx2', getPoint(splashWidth, yaaiWidth) + 'px');
+                win.style.setProperty('--ty2', getPoint(splashHeight, yaaiHeight) + 'px');
+                win.style.setProperty('--tx3', getPoint(splashWidth, yaaiWidth) + 'px');
+                win.style.setProperty('--ty3', getPoint(splashHeight, yaaiHeight) + 'px');
+                win.style.setProperty('--tx4', getPoint(splashWidth, yaaiWidth) + 'px');
+                win.style.setProperty('--ty4', getPoint(splashHeight, yaaiHeight) + 'px');
+
+                // Duración de la animación aleatoria para que algunas vayan más rápido (entre 2 y 5 segundos)
+                const randomDuration = (Math.random() * 3 + 2) + 's';
+                win.style.setProperty('--random-duration', randomDuration);
+                win.style.animationDelay = (id * 0.1) + 's';
+                
+                win.innerHTML = `
+                    <div class="yaai-header"><span>Internet Explorer</span><span>✕</span></div>
+                    <div class="yaai-body"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ-IXeq7x5Mwb5061GidWhEEWHzZJJ1zLV0oA&s" class="yaai-image"></div>
+                `;
+                document.body.appendChild(win);
+            };
+
+            setTimeout(() => {
+                const yaaiAudio = document.getElementById('yaai-audio');
+                if (yaaiAudio) yaaiAudio.play().catch(e => console.log(e));
+                for(let i=0; i<15; i++) spawnWindow(i);
+            }, 3000); // Aparecen después del "click"
+
+            // Mostrar BSOD al final de la secuencia de pánico
+            setTimeout(() => {
+                document.getElementById('bsod').style.display = 'block';
+                document.querySelector('.loading-bar').style.display = 'none';
+                document.querySelector('.tip-container').style.display = 'none';
+            }, 7500);
+        } else if (day === 6) { // Sábado
+            logo.style.display = 'none';
+            const satScene = document.getElementById('saturday-router-scene');
+            satScene.style.display = 'flex';
+            document.getElementById('cantv-notice').style.display = 'block';
+            
+            // Barra de carga con LAG
+            document.querySelector('.progress').style.animation = "cantvLag 8s infinite linear";
+            
+            // El "bajón" de luz
+            setTimeout(() => {
+                document.body.style.animation = "blackoutSpark 1.5s forwards";
+                setTimeout(() => {
+                    document.body.style.animation = "none"; // Eliminamos la animación que bloquea el brillo
+                    document.body.style.filter = "none"; // Reseteamos cualquier filtro
+                    document.body.style.backgroundColor = "black"; // Forzamos el fondo negro
+                    satScene.style.display = 'none';
+                    document.querySelector('.loading-bar').style.display = 'none';
+                    document.querySelector('.tip-container').style.display = 'none';
+                    document.getElementById('corpoelec-blackout').style.display = 'flex';
+                }, 2000); // 1.5s de chispazos + 0.5s de oscuridad total
+            }, 6000);
+        } else if (day === 0) { // Domingo
+            logo.style.display = 'none';
+            const sundayScene = document.getElementById('sunday-scene');
+            sundayScene.style.display = 'flex';
+            
+            // Metemos el logo dentro del chinchorro
+            const chinchorro = sundayScene.querySelector('.chinchorro');
+            logo.style.display = 'block';
+            logo.style.width = '80px';
+            logo.style.height = '80px';
+            logo.style.transform = 'rotate(-90deg)'; // Logo acostado
+            logo.style.filter = 'drop-shadow(5px 0px 10px rgba(0,0,0,0.5))';
+            chinchorro.appendChild(logo);
+
+            setTimeout(() => {
+                // El pánico comienza
+                document.getElementById('monday-ghost').style.animation = "mondayGlitch 0.5s forwards";
+                document.querySelector('.chinchorro').style.animation = "hammockBreak 0.4s forwards";
+                logo.style.animation = "logoPanic 1s forwards";
+                
+                // Cambio de ambiente a "Terror"
+                document.body.style.transition = "background-color 0.1s";
+                document.body.style.backgroundColor = "#300"; 
+            }, 7000);
+        } else {
+            logo.classList.add('logo-default');
+        }
+
+        let currentTipIndex = 0;
+        
+        function changeTip() {
+            tipElement.style.opacity = 0; // Desvanecer el tip actual
+            setTimeout(() => {
+                currentTipIndex = (currentTipIndex + 1) % tips.length; // Siguiente tip (cíclico)
+                tipElement.innerText = tips[currentTipIndex];
+                tipElement.style.opacity = 1; // Hacer aparecer el nuevo tip
+            }, 500); // Esperar a que termine el desvanecimiento
+        }
+
+        // Cambiar tip cada 2.5 segundos
+        setInterval(changeTip, 2500);
+        changeTip(); // Carga uno inicial
+    </script>
+</body>
+</html>

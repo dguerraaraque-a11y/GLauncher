@@ -1,0 +1,1736 @@
+:root {
+    --primary: #0078d7;
+    --primary-glow: rgba(0, 120, 215, 0.4);
+    --bg-color: linear-gradient(135deg, #0a0a0a, #1a1a1a);
+    --surface: rgba(30, 30, 30, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text: #ffffff;
+    --minecraft-green: #3c8527;
+}
+
+/* Fuentes Personalizadas */
+@font-face {
+    font-family: 'Montserrat-Bold';
+    src: url('../fonts/Montserrat-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Minecraftia';
+    src: url('../fonts/font.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MinecraftTen';
+    src: url('../fonts/MinecraftTen.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Montserrat-Bold', 'Segoe UI', Arial, sans-serif;
+    background: var(--bg-color);
+    background-size: cover;
+    color: var(--text);
+    height: 100vh;
+    border-radius: 20px; /* Bordes redondeados para la ventana */
+    border: 1px solid var(--glass-border); 
+    overflow: hidden;
+    position: relative; /* Habilita clipping correcto para hijos con posicion absoluta */
+    transition: border-radius 0.2s ease, border 0.2s ease;
+}
+
+.nav-btn {
+    display: inline-flex;
+    flex-direction: column; /* Pone el icono arriba y el texto abajo */
+    align-items: center;
+    gap: 4px; /* Separa un poquito el icono del texto */
+}
+
+/* Contenedor de Fondo Dinámico */
+#bg-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: 20px; /* Asegura que el fondo siga los bordes redondeados */
+}
+
+.bg-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background-size: cover;
+    background-position: center;
+}
+
+/* Optimización: Desactivar animaciones */
+body.no-animations *,
+body.no-animations *::before,
+body.no-animations *::after {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Forzar visibilidad de elementos que dependen de animaciones para mostrarse */
+body.no-animations .version-item,
+body.no-animations .mod-card,
+body.no-animations .pfp-card,
+body.no-animations .view {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+/* Estado Maximizado: Sin bordes redondeados ni bordes externos */
+body.maximized {
+    border-radius: 0;
+    border: none;
+}
+
+body.maximized #bg-container {
+    border-radius: 0;
+}
+
+/* Estilos de la Barra de Título Custom con bordes redondeados superiores */
+.main-title-bar {
+    -webkit-app-region: drag; /* Permite arrastrar la ventana */
+    height: 35px;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    z-index: 10001;
+    transition: border-radius 0.2s ease;
+}
+
+body.maximized .main-title-bar {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.window-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    color: #888;
+    font-family: 'Minecraftia', sans-serif;
+    pointer-events: none;
+}
+
+.window-title img { width: 14px; height: 14px; }
+
+.window-controls {
+    -webkit-app-region: no-drag; /* Importante: los botones deben ser clicables */
+    display: flex;
+}
+
+.control-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    font-size: 0.8rem;
+}
+
+.control-btn:hover { background: rgba(255, 255, 255, 0.1); }
+
+.control-btn.close:hover { 
+    background: #e81123; 
+}
+
+body:not(.maximized) .control-btn.close:hover {
+    border-top-right-radius: 20px;
+}
+
+/* Sistema de Vistas */
+.content {
+    padding: 10px 15px 140px 15px;
+    height: calc(100vh - 35px); /* Ajustamos el alto por la nueva barra */
+    overflow-y: auto;
+    box-sizing: border-box;
+    -webkit-app-region: no-drag;
+    /* Propiedades para la transición de vistas */
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.content.view-changing {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.view-loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--primary);
+}
+
+/* Scrollbar Personalizada */
+.content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+.content::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    box-shadow: inset 0 0 6px rgba(0,0,0,0.5);
+}
+
+/* Scrollbar específico para Chat */
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+.chat-msg-gif { max-width: 150px; border-radius: 8px; margin-top: 5px; display: block; border: 1px solid var(--glass-border); }
+
+/* Estilos de Servidores */
+.server-card { position: relative; min-height: auto; }
+.server-status-dot {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+.server-status-dot.online { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+.server-status-dot.offline { background: #ff4757; box-shadow: 0 0 8px #ff4757; }
+
+.view {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.version-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    margin-bottom: 12px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.03);
+    animation: slideInLeft 0.4s ease forwards;
+    opacity: 0;
+}
+
+.version-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(8px);
+    border-color: var(--primary);
+    box-shadow: -5px 0 20px var(--primary-glow);
+}
+
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.view.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Navbar Inferior Flotante */
+.bottom-nav {
+    position: fixed;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    padding: 10px 20px;
+    border-radius: 30px;
+    display: flex;
+    -webkit-app-region: no-drag;
+    gap: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+.nav-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.nav-btn:hover {
+    color: white;
+    background: rgba(255,255,255,0.1);
+}
+
+.nav-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+/* Botones Modernos (Estilo Global) */
+.btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    border: 1px solid var(--glass-border);
+    padding: 10px 20px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    font-family: 'Montserrat-Bold', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    letter-spacing: 0.5px;
+}
+
+.btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary {
+    background: var(--primary);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.btn-login.microsoft { background: #00a4ef; border-bottom: 4px solid #0078d7; }
+.btn-login.google { background: #ea4335; border-bottom: 4px solid #c5221f; }
+.btn-login.offline { background: #555; border-bottom: 4px solid #333; }
+
+.btn-login:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+.btn-login:active { transform: translateY(1px); border-bottom-width: 0px; margin-bottom: 4px; }
+
+/* Clases de utilidad */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--glass-border);
+    padding: 20px;
+    border-radius: 15px;
+}
+
+.version-dropdown {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.version-dropdown:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+/* Mejoras para el layout de Inicio */
+.inicio-layout {
+    display: flex;
+    gap: 20px;
+    height: 100%;
+}
+
+.inicio-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.inicio-sidebar {
+    width: 260px;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    width: 100%;
+}
+
+.mc-logo-inicio {
+    width: 600px;
+    max-width: 95%;
+    filter: drop-shadow(0 0 15px var(--primary-glow));
+    animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+}
+
+/* Feed de Noticias */
+.news-feed {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+}
+
+.news-card {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(5px);
+    padding: 15px;
+    transition: all 0.3s ease;
+    cursor: default;
+    border: 1px solid var(--glass-border);
+}
+
+.news-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-5px);
+    border-color: var(--primary);
+}
+
+.news-tag {
+    font-size: 0.65rem;
+    background: var(--primary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Minecraftia', sans-serif;
+}
+
+.news-tag.server { background: #3c8527; }
+.news-tag.dev { background: #555; }
+
+.news-card h4 { margin: 10px 0 5px 0; font-size: 0.9rem; color: var(--primary); }
+.news-card p { margin: 0; font-size: 0.75rem; color: #aaa; line-height: 1.4; }
+
+.controls-bar {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 30px;
+    margin-bottom: 20px;
+}
+
+/* Estilos del Selector Personalizado */
+.custom-select-container {
+    position: relative;
+    min-width: 300px;
+    user-select: none;
+    font-family: 'Montserrat-Bold', sans-serif;
+}
+
+.selected-option {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--glass-border);
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.selected-option:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.options-list {
+    position: absolute;
+    bottom: calc(100% + 15px);
+    left: 0;
+    right: 0;
+    background: rgba(20, 20, 20, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    display: none;
+    flex-direction: column;
+    overflow-y: auto; /* Permite el scroll vertical si el contenido excede */
+    z-index: 100;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    animation: slideUpFade 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.options-list.active {
+    display: flex;
+}
+
+/* Asegura que la lista sea visible y esté en su posición final cuando las animaciones están desactivadas */
+body.no-animations .options-list.active {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+.option {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.option:hover, .option.focused {
+    background: var(--primary);
+    padding-left: 30px;
+}
+
+.delete-playlist-btn {
+    opacity: 0.6;
+    transition: opacity 0.2s, transform 0.2s;
+}
+.delete-playlist-btn:hover {
+    opacity: 1 !important;
+    transform: scale(1.1);
+    color: #ff3838 !important;
+}
+
+.arrow-icon {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    transition: transform 0.3s ease;
+}
+
+.options-list.active ~ .selected-option .arrow-icon {
+    transform: rotate(180deg);
+}
+
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.btn-ejecutar {
+    font-size: 1.2rem;
+    padding: 15px 50px;
+    background: var(--primary);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 20px var(--primary-glow);
+    font-family: 'Montserrat-Bold', sans-serif;
+    text-shadow: none;
+}
+
+.hero-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.user-profile {
+    text-align: center;
+}
+
+.user-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--minecraft-green);
+    margin-bottom: 12px;
+    object-fit: cover;
+}
+
+.display-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    display: block;
+}
+
+.mc-handle {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    display: block;
+}
+
+/* Aplicar Minecraftia a algunos títulos para un look más auténtico */
+.view-header h1,
+.hero-section h3 {
+    font-family: 'Minecraftia', sans-serif;
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
+}
+.view-header p {
+    font-family: 'Montserrat-Bold', sans-serif;
+}
+
+/* Nuevos estilos para widgets de acceso rápido */
+.quick-access-section {
+    display: flex;
+    flex-direction: column; /* Cambiado a columna para que bajen en la sidebar */
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.quick-access-item {
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 15px;
+}
+
+.quick-access-item:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+    transform: translateY(-5px); /* Efecto de levantamiento */
+}
+
+.quick-access-item h3 {
+    font-family: 'Minecraftia', sans-serif; /* Fuente Minecraftia para títulos de widget */
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: var(--primary); /* Color primario para que resalte */
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.3); /* Sombra sutil */
+}
+
+.quick-access-item p {
+    font-size: 0.85rem;
+    color: #ccc;
+}
+
+.quick-access-item.gmusic-widget {
+    border-left: 5px solid #ff00ff; /* Un color distintivo para GMusic */
+}
+
+/* Estilos de Notificaciones Over-the-top */
+#notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000; /* Por encima del navbar y vistas */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none; /* No bloquea clics debajo si no hay notificaciones */
+}
+
+.notification {
+    min-width: 280px;
+    max-width: 350px;
+    padding: 16px;
+    background: rgba(25, 25, 25, 0.85);
+    backdrop-filter: blur(15px);
+    border-radius: 12px;
+    border-left: 6px solid var(--primary);
+    color: white;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    pointer-events: auto;
+    animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5); /* Sombra a la fuente de notif */
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+}
+
+.notification.error { border-left-color: #ff4757; }
+.notification.success { border-left-color: var(--minecraft-green); }
+
+@keyframes slideIn {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.notification-fade-out {
+    animation: slideOut 0.5s ease forwards;
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(120%); opacity: 0; }
+}
+
+/* Estilos del Reproductor Global */
+#global-player-container {
+    position: fixed;
+    z-index: 10002;
+    background: #0a0a0a;
+    border: 1px solid var(--primary);
+    transition: opacity 0.3s ease, visibility 0.3s;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    border-radius: 15px;
+    overflow: hidden;
+    top: 135px;
+    right: 40px;
+    width: 320px;
+    display: none; /* Se activa al poner la primera canción */
+}
+
+#global-player-container.hidden-player {
+    opacity: 0;
+    visibility: hidden; /* Esto reduce drásticamente el uso de CPU/GPU */
+    height: 0 !important; /* Colapsar el elemento ayuda a Chromium a ignorarlo */
+    pointer-events: none;
+}
+
+/* Estilos para Playlists Personalizadas */
+.playlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.playlist-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.playlist-item:hover {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+    transform: scale(1.05);
+}
+
+.playlist-item.active {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.add-to-playlist-btn {
+    display: none !important;
+}
+
+body.playlist-selected .add-to-playlist-btn {
+    display: flex !important;
+}
+
+.playlist-item i {
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+/* GMusic - Estilos del Reproductor */
+.gmusic-layout {
+    display: flex;
+    gap: 25px;
+    align-items: flex-start;
+    margin-top: 10px;
+}
+
+.gmusic-search-column {
+    flex: 1; /* Permite que la columna de búsqueda ocupe el espacio restante */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.gmusic-player-column {
+    width: 320px; /* Ancho fijo para el reproductor */
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    align-self: flex-start; /* Asegura que se alinee arriba */
+}
+
+.gmusic-search-column .version-dropdown {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.video-placeholder {
+    width: 100%;
+    aspect-ratio: 16/9; /* Mantiene el aspecto 16:9 para el video */
+    background: #000;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    margin: 20px 0;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.4s ease;
+}
+
+/* Barra de Búsqueda de Mods */
+.search-container {
+    display: flex;
+    gap: 12px;
+    margin: 10px 0 35px 0;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 20px 30px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(5px);
+}
+
+.search-input-group {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-group i {
+    position: absolute;
+    left: 15px;
+    color: var(--primary);
+    font-size: 0.9rem;
+}
+
+#search-input, #skin-search-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    padding: 12px 12px 12px 40px;
+    border-radius: 8px;
+    color: white;
+    font-family: 'Montserrat-Bold';
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+#search-input:focus, #skin-search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+#filter-type {
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: 1px solid var(--glass-border);
+    padding: 0 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Montserrat-Bold';
+    font-size: 0.8rem;
+    transition: border-color 0.3s;
+}
+
+#filter-type:hover {
+    border-color: var(--primary);
+}
+
+/* Animación para Mod Cards */
+@keyframes modCardEntry {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.9);
+        filter: blur(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+/* Gestor de Mods - Grid y Cards Cuadradas */
+.mods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+    margin-top: 15px;
+}
+
+.mod-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px !important;
+    animation: modCardEntry 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s, box-shadow 0.3s;
+    min-height: 240px;
+}
+
+.mod-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: var(--primary);
+    box-shadow: 0 10px 25px rgba(0, 120, 215, 0.3);
+}
+
+.mod-card img {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 1px solid var(--glass-border);
+    object-fit: cover;
+}
+
+.mod-card .mod-title {
+    font-size: 0.9rem;
+    color: #fff;
+    margin-bottom: 5px;
+    font-family: 'Minecraftia', sans-serif;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 2.4em;
+}
+
+.mod-card .mod-author {
+    font-size: 0.7rem;
+    color: #888;
+    margin-bottom: 15px;
+    font-family: 'Montserrat-Bold', sans-serif;
+}
+
+.mod-card .mod-author span {
+    color: var(--primary);
+}
+
+/* Paginación de Mods */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 30px;
+    padding-bottom: 20px;
+    grid-column: 1 / -1;
+}
+
+.pagination-btn {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    color: #888;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Montserrat-Bold';
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pagination-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+    color: white;
+}
+
+.pagination-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+/* Estilos para el Dashboard de Cuenta */
+.account-dashboard {
+    display: flex;
+    gap: 25px;
+    height: 100%;
+    align-items: flex-start;
+}
+
+.sidebar-floating {
+    width: 70px;
+    background: rgba(15, 15, 15, 0.6);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    gap: 15px;
+    box-shadow: 5px 0 25px rgba(0,0,0,0.5);
+    height: fit-content;
+    position: sticky;
+    top: 20px; /* Margen para que no se pegue al techo al bajar */
+    z-index: 100;
+}
+
+.sidebar-spacer { flex: 1; min-height: 50px; }
+
+.side-tab-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: #666;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.side-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.side-tab-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 0 20px var(--primary-glow);
+}
+
+/* Tooltip flotante al pasar el mouse */
+.side-tab-btn::after {
+    content: attr(data-label);
+    position: absolute;
+    left: 70px;
+    background: var(--primary);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.3s ease;
+    font-family: 'Montserrat-Bold';
+}
+
+.side-tab-btn:hover::after {
+    opacity: 1;
+    left: 80px;
+}
+
+.dashboard-main {
+    flex: 1;
+    min-height: 450px;
+    padding: 30px !important;
+}
+
+.account-tab-content {
+    display: none;
+    animation: fadeIn 0.4s ease;
+}
+
+.account-tab-content.active {
+    display: block;
+}
+
+.mc-font { font-family: 'Minecraftia', sans-serif; margin-bottom: 20px; }
+
+.glass-hr { border: 0; height: 1px; background: var(--glass-border); margin: 20px 0; }
+
+.profile-info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.info-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid var(--glass-border); }
+.info-box .label { font-size: 0.65rem; color: var(--primary); text-transform: uppercase; font-family: 'Montserrat-Bold'; display: block; margin-bottom: 5px; }
+.info-box .value { font-size: 1rem; color: #fff; margin: 0; }
+.info-box .value.mono { font-family: 'Courier New', monospace; font-size: 0.8rem; color: #aaa; }
+
+/* Perfil Mejorado */
+.profile-header-banner {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    background: linear-gradient(90deg, rgba(0, 120, 215, 0.2) 0%, transparent 100%);
+    padding: 30px;
+    border-radius: 20px;
+    margin-bottom: 30px;
+    border: 1px solid var(--glass-border);
+}
+
+.profile-avatar-container {
+    position: relative;
+}
+
+.profile-avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 25px;
+    border: 4px solid var(--primary);
+    box-shadow: 0 0 25px var(--primary-glow);
+    object-fit: cover;
+    background: #111;
+}
+
+.status-indicator {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    border: 4px solid #111;
+}
+
+.status-indicator.online { background: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
+
+.profile-header-info h1 {
+    font-size: 2.2rem;
+    margin: 0;
+    text-shadow: 3px 3px 0px rgba(0,0,0,0.5);
+}
+
+.player-rank {
+    background: var(--primary);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-family: 'Montserrat-Bold';
+    letter-spacing: 1px;
+}
+
+.profile-section-title {
+    font-family: 'Minecraftia';
+    font-size: 0.85rem;
+    color: #888;
+    margin: 30px 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.skin-preview-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 40px !important;
+    background: radial-gradient(circle, rgba(0,120,215,0.1) 0%, transparent 70%);
+    position: relative;
+    overflow: hidden;
+}
+
+.skin-render {
+    height: 250px;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+    transition: transform 0.5s ease;
+}
+
+.skin-preview-card:hover .skin-render {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.edit-avatar-btn {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid #111;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+}
+
+.edit-avatar-btn:hover {
+    transform: scale(1.1);
+    background: #005a9e;
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+/* Estilos de Ajustes y Formularios */
+.settings-tabs-header {
+    display: flex;
+    gap: 10px;
+    padding: 10px !important;
+    justify-content: center;
+}
+
+.settings-tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #888;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Montserrat-Bold';
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-tab-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+.settings-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+.settings-tab-content { display: none; animation: fadeIn 0.3s ease; padding: 10px; }
+.settings-tab-content.active { display: block; }
+
+.setting-item {
+    margin-bottom: 30px;
+    background: rgba(0, 120, 215, 0.1);
+    padding: 30px 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    clip-path: polygon(5% 0, 95% 0, 100% 50%, 95% 100%, 5% 100%, 0 50%);
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
+}
+
+.setting-item:hover {
+    background: rgba(0, 120, 215, 0.2);
+    transform: scale(1.02);
+    box-shadow: 0 0 20px var(--primary-glow);
+}
+
+.form-input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-family: 'Montserrat-Bold', sans-serif;
+    outline: none;
+    transition: all 0.3s;
+    text-align: center;
+}
+.form-input:focus { border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+
+/* Custom Number Stepper */
+.number-stepper {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    padding: 5px;
+    gap: 5px;
+}
+
+.num-btn {
+    background: var(--primary);
+    border: none;
+    color: white;
+    width: 35px;
+    height: 35px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Montserrat-Bold';
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.num-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.number-stepper input {
+    width: 80px;
+    background: transparent;
+    border: none;
+    color: white;
+    text-align: center;
+    font-family: 'Montserrat-Bold';
+    font-size: 1rem;
+    outline: none;
+}
+
+/* Ocultar flechas nativas del input number */
+.number-stepper input::-webkit-inner-spin-button,
+.number-stepper input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.settings-label {
+    display: block;
+    font-size: 0.85rem;
+    color: #fff;
+    text-transform: uppercase;
+    font-family: 'Montserrat-Bold', sans-serif;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+}
+
+/* Color Input Personalizado */
+input[type="color"] {
+    -webkit-appearance: none;
+    border: 3px solid var(--glass-border);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    cursor: pointer;
+    background: transparent;
+    transition: border-color 0.3s;
+}
+
+input[type="color"]:hover { border-color: var(--primary); }
+
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 4px; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+/* Custom Select Dropdown appearance */
+select.form-input {
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 14px;
+    padding-right: 40px;
+}
+
+.profile-edit-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+    gap: 15px; 
+    padding: 0; 
+}
+
+/* Selector de Historial de Avatares */
+.pfp-history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.pfp-card {
+    position: relative;
+    aspect-ratio: 1/1;
+    border-radius: 15px;
+    overflow: hidden;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: modCardEntry 0.4s ease both;
+}
+
+.pfp-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+}
+
+.pfp-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.pfp-card .pfp-name-tag {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.7);
+    padding: 5px;
+    font-size: 0.65rem;
+    text-align: center;
+    backdrop-filter: blur(5px);
+    font-family: 'Montserrat-Bold';
+}
+
+/* Botones de acción en esquinas */
+.pfp-action-btn {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0;
+    transform: scale(0.5);
+    z-index: 5;
+}
+
+.pfp-card:hover .pfp-action-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.pfp-action-btn.delete {
+    top: 8px;
+    right: 8px;
+    background: #ff4757;
+}
+
+.pfp-action-btn.edit {
+    top: 8px;
+    left: 8px;
+    background: var(--primary);
+}
+
+.pfp-action-btn:hover { transform: scale(1.2); filter: brightness(1.2); }
+
+/* Estilos para Sliders y Switches */
+.switch-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 0;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 24px;
+}
+
+.switch input { opacity: 0; width: 0; height: 0; }
+
+.slider-switch {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: .4s;
+    border-radius: 34px;
+    border: 1px solid var(--glass-border);
+}
+
+.slider-switch:before {
+    position: absolute;
+    content: "";
+    height: 16px; width: 16px;
+    left: 3px; bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider-switch { background-color: var(--primary); border-color: var(--primary); }
+input:checked + .slider-switch:before { transform: translateX(22px); }
+
+/* Sliders (Range) Personalizados */
+input[type="range"] {
+    -webkit-appearance: none;
+    background: rgba(255, 255, 255, 0.1);
+    height: 6px;
+    border-radius: 5px;
+    outline: none;
+    margin: 15px 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: var(--primary);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--primary-glow);
+    border: 2px solid white;
+}
+
+.pfp-action-btn:hover { transform: scale(1.2); filter: brightness(1.2); }
+
+/* Estilos para la vista de Logros */
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Ajustado para más logros */
+    gap: 20px;
+    margin-top: 20px;
+    padding: 10px;
+}
+
+.achievement-card {
+    text-align: center;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: transform 0.3s ease, border-color 0.3s, box-shadow 0.3s;
+    min-height: 220px; /* Asegurar altura consistente */
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.achievement-card:hover {
+    transform: translateY(-8px) scale(1.03);
+    border-color: var(--primary);
+    box-shadow: 0 8px 20px rgba(0, 120, 215, 0.3);
+}
+
+.achievement-card:hover i {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.achievement-icon {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 8px rgba(0,0,0,0.5));
+}
+
+.achievement-card i {
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+    transition: transform 0.3s ease;
+}
+
+.achievement-card h3 {
+    font-family: 'Minecraftia', sans-serif;
+    color: var(--primary);
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.achievement-card p {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin: 5px 0 15px 0;
+    flex-grow: 1; /* Permite que el párrafo ocupe el espacio disponible */
+}
+
+.achievement-progress {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.achievement-progress .progress-bar-fill {
+    height: 100%;
+    background: var(--minecraft-green);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.achievement-status {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-family: 'Montserrat-Bold';
+    text-transform: uppercase;
+}
+
+.achievement-status.completed {
+    background: #2ecc71; /* Verde */
+    color: white;
+}
+
+.achievement-status.in-progress {
+    background: #f39c12; /* Naranja */
+    color: white;
+}
+
+.achievement-status.locked {
+    background: #555; /* Gris oscuro */
+    color: #ccc;
+}
+
+/* Estilos para el Modal de Detalle de Logros */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 99999; /* Máxima prioridad */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.achievement-detail-panel {
+    width: 500px;
+    max-width: 90%;
+    background: rgba(20, 20, 20, 0.95);
+    border: 2px solid var(--primary);
+    padding: 40px !important;
+    position: relative;
+    transform: scale(0.9);
+    opacity: 0;
+    animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    box-shadow: 0 0 40px var(--primary-glow);
+}
+
+@keyframes modalPop {
+    to { transform: scale(1); opacity: 1; }
+}
+
+.close-modal-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.close-modal-btn:hover { color: #ff4757; }
+
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    margin-bottom: 10px;
+}
+
+.detail-icon-box {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--glass-border);
+}
+
+.detail-title-group h2 {
+    margin: 0 0 8px 0;
+    font-size: 1.5rem;
+    color: var(--primary);
+}
+
+.detail-description {
+    font-size: 1.1rem;
+    color: #ccc;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+/* --- Account Switcher (YouTube TV Style) --- */
+.account-switcher-panel {
+    width: 800px;
+    max-width: 95%;
+    background: rgba(10, 10, 10, 0.95) !important;
+    border: 2px solid var(--primary) !important;
+    padding: 60px !important;
+    border-radius: 40px !important;
+    box-shadow: 0 0 60px rgba(0,0,0,0.9), 0 0 30px var(--primary-glow) !important;
+}
+
+.accounts-grid {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 40px;
+}
+
+.account-selector-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: 160px;
+}
+
+.account-selector-card .avatar-wrapper {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    border: 5px solid transparent;
+    padding: 6px;
+    transition: all 0.3s;
+}
+
+.account-selector-card img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #1a1a1a;
+}
+
+.account-selector-card:hover .avatar-wrapper {
+    border-color: var(--primary);
+    transform: scale(1.15);
+    box-shadow: 0 0 30px var(--primary-glow);
+}
+
+.account-selector-card .account-name {
+    font-family: 'Montserrat-Bold';
+    font-size: 1.1rem;
+    color: #888;
+    transition: color 0.3s;
+}
+
+.account-selector-card:hover .account-name {
+    color: #fff;
+}
+
+.account-selector-card.active .avatar-wrapper {
+    border-color: var(--minecraft-green);
+    box-shadow: 0 0 25px rgba(60, 133, 39, 0.5);
+}

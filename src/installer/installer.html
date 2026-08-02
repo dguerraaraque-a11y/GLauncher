@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instalador GLauncher</title>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0a;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            border-radius: 0; /* El instalador suele tener su propio manejo de ventana */
+            overflow: hidden;
+        }
+        .installer-sidebar {
+            width: 220px;
+            background: linear-gradient(180deg, rgba(10, 10, 10, 0.9) 0%, rgba(20, 20, 20, 0.8) 100%), 
+                        url('../../assets/images/ifondo2.png') no-repeat center center;
+            background-size: cover;
+            border-right: 1px solid var(--glass-border);
+            padding: 40px 25px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+        .sidebar-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #444;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+        .sidebar-step.active {
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+        .sidebar-step.completed {
+            color: var(--minecraft-green);
+        }
+        .step-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .sidebar-steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            flex: 1;
+        }
+        .sidebar-footer {
+            margin-top: auto;
+        }
+        .installer-main {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        .installer-main::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(145deg, rgba(10, 10, 10, 0.85) 0%, rgba(20, 20, 20, 0.6) 100%), 
+                        url('../../assets/images/ifondo.png') no-repeat center center;
+            background-size: cover;
+            filter: blur(10px);
+            z-index: -1;
+            transform: scale(1.1); /* Evita bordes blancos por el blur */
+        }
+        .installer-header i {
+            color: var(--primary);
+            filter: drop-shadow(0 0 15px var(--primary-glow));
+            margin-bottom: 20px;
+        }
+        .installer-steps {
+            text-align: left;
+            flex: 1;
+        }
+        .step-content {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        .step-content.active {
+            display: block;
+        }
+        /* Reajuste de setting-item para el instalador */
+        .installer-path-box {
+            padding: 15px !important;
+            clip-path: none !important;
+            background: rgba(0,0,0,0.3) !important;
+            border-radius: 10px !important;
+            margin-top: 15px;
+        }
+        /* Grid de Java */
+        .java-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 15px;
+        }
+        .java-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .java-card:hover {
+            border-color: var(--primary);
+            background: rgba(0, 120, 215, 0.1);
+            transform: translateY(-2px);
+        }
+        .java-card.active {
+            border-color: var(--minecraft-green);
+            background: rgba(60, 133, 39, 0.1);
+        }
+        .java-version {
+            font-family: 'Minecraftia';
+            font-size: 0.75rem;
+            color: #fff;
+        }
+        .java-arch {
+            font-size: 0.65rem;
+            color: #777;
+            font-family: 'Montserrat-Bold';
+        }
+        .btn-skip {
+            background: transparent !important;
+            border: 1px dashed #f39c12 !important;
+            color: #f39c12 !important;
+            opacity: 0.8;
+        }
+        .btn-skip:hover {
+            opacity: 1;
+            background: rgba(243, 156, 18, 0.05) !important;
+            border-style: solid !important;
+        }
+
+        /* Scrollbar personalizado para el EULA */
+        .eula-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .eula-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+        .eula-container::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+            box-shadow: inset 0 0 6px rgba(0,0,0,0.5);
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+    </style>
+</head>
+<body>
+        <aside class="installer-sidebar">
+            <div class="sidebar-steps-container">
+                <div class="sidebar-step active" id="side-1">
+                    <div class="step-circle">1</div>
+                    <span>Bienvenida</span>
+                </div>
+                <div class="sidebar-step" id="side-2">
+                    <div class="step-circle">2</div>
+                    <span>EULA</span>
+                </div>
+                <div class="sidebar-step" id="side-3">
+                    <div class="step-circle">3</div>
+                    <span>Entorno Java</span>
+                </div>
+                <div class="sidebar-step" id="side-4">
+                    <div class="step-circle">4</div>
+                    <span>Carpeta</span>
+                </div>
+                <div class="sidebar-step" id="side-5">
+                    <div class="step-circle">5</div>
+                    <span>Comprobando archivos</span>
+                </div>
+                <div class="sidebar-step" id="side-6">
+                    <div class="step-circle">6</div>
+                    <span>Finalizar</span>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <div style="font-size: 0.55rem; color: #444; margin-bottom: 10px; text-align: center; font-family: 'Montserrat-Bold';">Creator: DaniCraftYT25</div>
+                <button class="btn" style="width: 100%; font-size: 0.7rem; color: #ff4757; border-color: rgba(255, 71, 87, 0.3); background: rgba(255, 71, 87, 0.05);" onclick="closeInstaller()">SALIR</button>
+            </div>
+        </aside>
+
+        <div class="installer-main">
+            <div class="installer-header">
+                <i class="fa-solid fa-download fa-3x"></i>
+                <h1 class="mc-font" style="font-size: 1.5rem; margin: 0;">GLauncher</h1>
+            </div>
+
+            <div class="installer-steps">
+                <!-- Paso 1: Bienvenida -->
+                <div id="step-1" class="step-content active">
+                    <h3 class="mc-font" style="font-size: 0.9rem; color: #fff; margin-top: 30px;">Bienvenido</h3>
+                    <p style="font-size: 0.85rem; line-height: 1.6; color: #ccc; font-family: 'Montserrat-Bold';">
+                        Este asistente instalará la versión más reciente de GLauncher Modern en tu sistema para que puedas disfrutar de Minecraft con la mejor optimización.
+                    </p>
+                    <div style="margin-top: 40px;">
+                        <button class="btn btn-primary" style="width: 100%;" onclick="nextStep(2)">SIGUIENTE</button>
+                    </div>
+                </div>
+
+                <!-- Paso 2: EULA -->
+                <div id="step-2" class="step-content">
+                    <h3 class="mc-font" style="font-size: 0.9rem;">Acuerdo de Licencia de Usuario Final (EULA)</h3>
+                    <div class="eula-container" style="height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 15px; border-radius: 10px; font-size: 0.75rem; line-height: 1.5; color: #ccc;">
+                        <h4 style="color: var(--primary); margin-top: 0;">1. ACEPTACIÓN</h4>
+                        <p>Al instalar o utilizar este software, usted acepta los términos de este acuerdo.</p>
+
+                        <h4 style="color: var(--primary);">2. USO</h4>
+                        <p>GLauncher es un software gratuito desarrollado por la comunidad. No está afiliado, asociado ni respaldado por Mojang Studios o Microsoft. No se permite su venta ni instalación pagada.</p>
+
+                        <h4 style="color: var(--primary);">3. RESPONSABILIDAD</h4>
+                        <p>El software se proporciona "tal cual", sin garantía de ningún tipo. Los autores no se hacen responsables de daños en su equipo o pérdida de datos, aunque el software no está afiliado y puede dar error de desconocido.</p>
+
+                        <h4 style="color: var(--primary);">4. DISTRIBUCIÓN</h4>
+                        <p>Usted puede distribuir este software libremente. Pero si quiere, puede mejorarlo para añadir más funcionalidades.</p>
+                    </div>
+                    <div style="margin-top: 25px; display: flex; gap: 15px;">
+                        <button class="btn" style="flex: 1;" onclick="nextStep(1)">VOLVER</button>
+                        <button class="btn btn-primary" style="flex: 1;" onclick="nextStep(3)">ACEPTAR Y CONTINUAR</button>
+                    </div>
+                </div>
+
+                <!-- Paso 3: Entorno Java -->
+                <div id="step-3" class="step-content">
+                    <h3 class="mc-font" style="font-size: 0.9rem;">Entorno Java</h3>
+                    <p style="font-size: 0.75rem; color: #888; font-family: 'Montserrat-Bold';">Selecciona la versión de Java que deseas utilizar:</p>
+                    
+                    <div class="java-grid">
+                        <div class="java-card" onclick="selectJava(this, 'Java 8 x86')">
+                            <span class="java-version">Java 8</span>
+                            <span class="java-arch">Windows x86</span>
+                        </div>
+                        <div class="java-card active" onclick="selectJava(this, 'Java 8 x64')">
+                            <span class="java-version">Java 8</span>
+                            <span class="java-arch">Windows x64</span>
+                        </div>
+                        <div class="java-card" onclick="selectJava(this, 'Java 17 x86')">
+                            <span class="java-version">Java 17</span>
+                            <span class="java-arch">Windows x86</span>
+                        </div>
+                        <div class="java-card" onclick="selectJava(this, 'Java 17 x64')">
+                            <span class="java-version">Java 17</span>
+                            <span class="java-arch">Windows x64</span>
+                        </div>
+                        <div class="java-card" onclick="selectJava(this, 'Java 21 x86')">
+                            <span class="java-version">Java 21</span>
+                            <span class="java-arch">Windows x86</span>
+                        </div>
+                        <div class="java-card" onclick="selectJava(this, 'Java 21 x64')">
+                            <span class="java-version">Java 21</span>
+                            <span class="java-arch">Windows x64</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 25px; display: flex; gap: 15px;">
+                        <button class="btn" style="flex: 1;" onclick="nextStep(2)">VOLVER</button>
+                        <button class="btn btn-skip" style="flex: 1;" onclick="nextStep(4)">SALTAR</button>
+                        <button class="btn btn-primary" style="flex: 1;" onclick="nextStep(4)">SIGUIENTE</button>
+                    </div>
+                </div>
+
+                <!-- Paso 4: Selección de Ruta -->
+                <div id="step-4" class="step-content">
+                    <h3 class="mc-font" style="font-size: 0.9rem;">Ruta de Archivos</h3>
+                    <p style="font-size: 0.75rem; color: #888; font-family: 'Montserrat-Bold';">Los datos (.glauncher) se guardarán en:</p>
+                    <div class="installer-path-box setting-item">
+                        <div style="display: flex; gap: 10px; width: 100%;">
+                            <input type="text" id="install-path" class="form-input" style="flex: 1; text-align: left; font-size: 0.7rem;" readonly value="C:\Users\AppData\Roaming\.glauncher">
+                            <button class="btn btn-primary" style="padding: 0 12px;" onclick="browseFolder()"><i class="fa-solid fa-folder-open"></i></button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 30px; display: flex; gap: 15px;">
+                        <button class="btn" style="flex: 1;" onclick="nextStep(3)">VOLVER</button>
+                        <button class="btn btn-primary" style="flex: 1;" onclick="nextStep(5)">INSTALAR</button>
+                    </div>
+                </div>
+
+                <!-- Paso 5: Progreso -->
+                <div id="step-5" class="step-content">
+                    <h3 class="mc-font" style="font-size: 0.9rem;">Comprobando archivos</h3>
+                    <div class="progress-bar-container" style="margin: 25px 0; background: rgba(255,255,255,0.05); height: 10px;">
+                        <div id="install-progress" class="progress-bar-fill" style="width: 0%; background: var(--minecraft-green);"></div>
+                    </div>
+                    <p id="status-text" style="font-size: 0.75rem; color: #aaa; text-align: center; font-family: 'Montserrat-Bold';">Preparando entorno...</p>
+                    
+                    <div id="install-done-actions" style="margin-top: 30px; display: none; animation: fadeIn 0.5s ease;">
+                        <button class="btn btn-primary" style="width: 100%;" onclick="nextStep(6)">CONTINUAR</button>
+                    </div>
+                </div>
+
+                <!-- Paso 6: Finalizar -->
+                <div id="step-6" class="step-content">
+                    <h3 class="mc-font" style="font-size: 0.9rem; color: var(--minecraft-green);">¡Todo listo!</h3>
+                    <p style="font-size: 0.85rem; line-height: 1.6; color: #ccc; font-family: 'Montserrat-Bold';">
+                        GLauncher se ha instalado correctamente. Configura los últimos detalles antes de empezar tu aventura:
+                    </p>
+
+                    <div style="margin-top: 25px; display: flex; flex-direction: column; gap: 20px; background: rgba(255,255,255,0.02); padding: 20px; border-radius: 10px; border: 1px solid var(--glass-border);">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <label class="switch">
+                                <input type="checkbox" id="shortcut-desktop" checked>
+                                <span class="slider-switch"></span>
+                            </label>
+                            <span style="font-size: 0.8rem; color: #eee; font-family: 'Montserrat-Bold';">Crear acceso directo en el escritorio</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <label class="switch">
+                                <input type="checkbox" id="shortcut-startmenu" checked>
+                                <span class="slider-switch"></span>
+                            </label>
+                            <span style="font-size: 0.8rem; color: #eee; font-family: 'Montserrat-Bold';">Crear carpeta en el menú de inicio</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 35px;">
+                        <button class="btn btn-primary" style="width: 100%;" onclick="closeInstaller()">TERMINAR Y LANZAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <script>
+        // Estado global de la instalación
+        let installData = {
+            java: 'Java 8 x64',
+            path: '',
+            shortcuts: { desktop: true, startMenu: true }
+        };
+
+        // Al cargar, obtener la ruta por defecto
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (window.electronAPI) {
+                installData.path = await window.electronAPI.invoke('get-default-install-path');
+                document.getElementById('install-path').value = installData.path;
+            }
+        });
+
+        async function browseFolder() {
+            const path = await window.electronAPI.invoke('installer-select-path');
+            if (path) {
+                installData.path = path;
+                document.getElementById('install-path').value = path;
+            }
+        }
+
+        function closeInstaller() {
+            if (window.electronAPI) {
+                const isDone = document.getElementById('step-6').classList.contains('active');
+                if (isDone) {
+                    // En lugar de cerrar, vamos al launcher
+                    window.location.href = "../../index.html";
+                } else {
+                    window.electronAPI.send('window-close');
+                }
+            } else {
+                window.close();
+            }
+        }
+
+        function selectJava(card, version) {
+            document.querySelectorAll('.java-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            installData.java = version;
+        }
+
+        async function nextStep(step) {
+            // Actualizar vista
+            document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
+            document.getElementById('step-' + step).classList.add('active');
+            
+            // Actualizar barra lateral
+            document.querySelectorAll('.sidebar-step').forEach((el, index) => {
+                el.classList.remove('active', 'completed');
+                if (index + 1 < step) el.classList.add('completed');
+                if (index + 1 === step) el.classList.add('active');
+            });
+            
+            if(step === 5) {
+                startRealInstallation();
+            }
+        }
+
+        async function startRealInstallation() {
+                let bar = document.getElementById('install-progress');
+                let status = document.getElementById('status-text');
+                let val = 0;
+
+                // Enviar datos al proceso principal
+                const result = await window.electronAPI.invoke('installer-run', installData);
+
+                let interval = setInterval(() => {
+                    val += Math.random() * 5;
+                    // Si el proceso principal terminó y la barra está alta, finalizamos
+                    if(val >= 95 && result.success) {
+                        val = 100;
+                        clearInterval(interval);
+                        status.innerText = "¡Instalación completada!";
+                        status.style.color = "var(--minecraft-green)";
+                        // Mostrar el botón para ir al último paso
+                        document.getElementById('install-done-actions').style.display = 'flex';
+                    } else if (val >= 95 && !result.success) {
+                        clearInterval(interval);
+                        status.innerText = "Error: " + result.error;
+                        status.style.color = "#ff4757";
+                    }
+                    bar.style.width = val + "%";
+                }, 200);
+        }
+    </script>
+</body>
+</html>

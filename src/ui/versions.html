@@ -1,0 +1,23 @@
+<div class="view-header">
+    <h1>Versiones de Minecraft</h1>
+    <p>Busca y Descarga la Version que Quieres Ejecutar</p>
+</div>
+
+<div class="versions-container" style="margin-top: 20px;">
+    <!-- Buscador y Filtros -->
+    <div class="search-filter-bar card" style="margin-bottom: 25px; display: flex; flex-direction: column; gap: 15px;">
+        <input type="text" id="version-search" placeholder="🔍 Buscar versión (ej: 1.20)..." class="version-dropdown" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white; padding: 12px; border-radius: 8px;" oninput="filterAndRenderVersions()">
+        
+        <div class="filter-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="nav-btn active" onclick="setVersionFilter('release', this)">RELEASES</button>
+            <button class="nav-btn" onclick="setVersionFilter('snapshot', this)">SNAPSHOTS</button>
+            <button class="nav-btn" onclick="setVersionFilter('old', this)">ALPHA / BETA</button>
+            <button class="nav-btn" onclick="setVersionFilter('all', this)">TODO</button>
+        </div>
+    </div>
+
+    <!-- Lista Dinámica de Versiones -->
+    <div id="versions-list-dynamic" class="versions-list">
+        <p style="text-align: center; color: #888; padding: 20px;">Sincronizando con Mojang...</p>
+    </div>
+</div>

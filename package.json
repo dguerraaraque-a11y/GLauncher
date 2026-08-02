@@ -1,0 +1,76 @@
+{
+  "name": "glauncher",
+  "version": "1.0.0",
+  "description": "A modern Minecraft launcher built with Electron.",
+  "main": "main.js",
+  "author": "DaniCraftYT25",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node build.js"
+  },
+  "build": {
+    "appId": "com.glauncher.modern",
+    "productName": "GLauncher",
+    "win": {
+      "target": [
+        "nsis",
+        "appx"
+      ],
+      "icon": "assets/icons/favicon.ico",
+      "artifactName": "GLauncher v1.0 Setup.${ext}"
+    },
+    "appx": {
+      "publisher": "CN=DaniCraftYT25",
+      "identityName": "com.glauncher.modern",
+      "publisherDisplayName": "DaniCraftYT25",
+      "languages": [
+        "es-ES",
+        "en-US"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "assets/icons/favicon.ico",
+      "uninstallerIcon": "assets/icons/favicon.ico",
+      "uninstallDisplayName": "GLauncher v1.0 - DaniCraftYT25",
+      "include": "installer.nsh"
+    },
+    "files": [
+      "**/*"
+    ]
+  },
+  "keywords": [
+    "electron",
+    "launcher",
+    "minecraft"
+  ],
+  "dependencies": {
+    "@distube/ytdl-core": "^4.15.9",
+    "@xmcl/core": "^2.15.1",
+    "@xmcl/installer": "^6.1.2",
+    "@xmcl/user": "^4.3.0",
+    "axios": "^1.6.0",
+    "electron-store": "^8.1.0",
+    "find-java-home": "^1.2.2",
+    "fs-extra": "^11.2.0",
+    "jimp": "^0.22.12",
+    "live-server": "^1.2.2",
+    "minecraft-server-util": "^5.4.4",
+    "plyr": "^3.7.8",
+    "present": "^1.0.0",
+    "scripts": "^0.1.0",
+    "windows-shortcuts": "^0.1.6",
+    "yt-search": "^2.12.1"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "allowScripts": {
+    "electron@30.5.1": true,
+    "core-js@3.49.0": true
+  }
+}

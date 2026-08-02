@@ -1,0 +1,28 @@
+<!-- Encabezado Original -->
+<div class="view-header">
+    <h1>Gestor de Mods</h1>
+    <p>Administra tus complementos y optimizaciones</p>
+</div>
+
+<!-- Buscador y Filtros de Modrinth -->
+<div class="search-bar card" style="margin-top: 20px; display: flex; flex-direction: column; gap: 15px;">
+    <div style="display: flex; gap: 10px; width: 100%;">
+        <input type="text" id="search-input" placeholder="🔍 Buscar mods, shaders o texturas..." class="version-dropdown" style="flex-grow: 1;" onkeypress="if(event.key === 'Enter') performModSearch()">
+        
+        <select id="filter-type" class="version-dropdown" style="width: 200px; background: rgba(0,0,0,0.3);">
+            <option value="mod">Mods</option>
+            <option value="resourcepack">Texturas</option>
+            <option value="shader">Shaders</option>
+        </select>
+    </div>
+
+    <button id="search-btn" class="btn btn-primary" style="width: 100%;" onclick="performModSearch()">
+        <i class="fa-solid fa-magnifying-glass" style="margin-right: 8px;"></i>BUSCAR EN MODRINTH
+    </button>
+</div>
+    
+    <!-- Aquí se inyectarán los resultados de Modrinth dinámicamente -->
+    <div id="api-results" style="border-top: 1px solid var(--glass-border); margin-top: 20px; padding-top: 20px; display: none;">
+        <h3 style="margin-top: 0; color: var(--primary); font-family: 'Minecraftia'; font-size: 0.9rem;">RESULTADOS ENCONTRADOS</h3>
+        <div id="results-list" class="mods-grid"></div>
+    </div>

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" alt="GLauncher Logo" width="120" height="120"/>
+<img src="assets/icons/favicon.png" alt="GLauncher Logo" width="120" height="120"/>
 
 # ⛏️ GLauncher
 

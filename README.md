@@ -84,6 +84,14 @@ GLauncher es un lanzador de Minecraft moderno, elegante y completo, construido c
 - Soporte nativo para **Windows 7, 8 y 8.1**
 - Sin dependencias adicionales en sistemas más antiguos
 
+#### 🐧 Compatibilidad con Linux (Interfaz Gráfica)
+
+- Compatible con entorns de escritorio (**GNOME, KDE, XFCE, Cinnamon**) en distros como **Ubuntu, Linux Mint, Arch Linux, Fedora y Pop!_OS**
+- Ejecución directa del ejecutable nativo desde el paquete `.zip`
+- **Comando de inicio rápido en terminal:**
+  ```bash
+  chmod +x glauncher && ./glauncher --no-sandbox
+
 #### 🎵 GMusic — Reproductor Integrado
 - Reproduce música de **YouTube** desde dentro del launcher
 - **Mini-player flotante** siempre visible (always on top)

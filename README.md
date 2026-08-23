@@ -1,8 +1,8 @@
 <div align="center">
+  <img src="assets/icons/favicon.png" alt="GLauncher Logo" width="120" height="120"/>
+  <br/>
+  <img src="assets/icons/minecraft_title.png" alt="GLauncher Logo" width="380" height="80"/>
 
-<img src="assets/icons/favicon.png" alt="GLauncher Logo" width="120" height="120"/>
-
-# ⛏️ GLauncher
 
 ### Lanzador moderno de Minecraft para Windows · Modern Minecraft Launcher for Windows
 
